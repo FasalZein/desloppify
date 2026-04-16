@@ -1,0 +1,12 @@
+id: CATCH_RETURN_DEFAULT
+language: typescript
+rule:
+  kind: catch_clause
+  has:
+    kind: statement_block
+    has:
+      kind: return_statement
+      has:
+        kind: "null"
+message: "Catch returns null — hides the error silently"
+severity: warning

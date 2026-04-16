@@ -100,7 +100,6 @@ const RULES = [
   { id: "USEMEMO_EMPTY_DEPS", category: "ai-slop", tier: 1, tool: "grep", desc: "useMemo with empty deps on constant" },
   { id: "UNDERSCORE_STATE", category: "ai-slop", tier: 0, tool: "grep", desc: "Underscore-prefixed useState — dead state" },
   { id: "REDUNDANT_CAST", category: "ai-slop", tier: 0, tool: "grep", desc: "Possibly redundant String/Number/Boolean cast" },
-  { id: "ASYNC_NO_AWAIT", category: "ai-slop", tier: 0, tool: "grep", desc: "Async function — verify it uses await" },
   { id: "KEY_INDEX", category: "ai-slop", tier: 0, tool: "grep", desc: "Array index as React key — use stable ID" },
   { id: "OR_CASCADE", category: "ai-slop", tier: 0, tool: "grep", desc: "Chained defensive .get() or fallbacks" },
 
@@ -109,6 +108,20 @@ const RULES = [
 
   // new complexity
   { id: "BOOLEAN_FLAG_PARAMS", category: "complexity", tier: 0, tool: "grep", desc: "3+ boolean parameters — use options object" },
+
+  // new ast-grep structural rules
+  { id: "BROAD_EXCEPT", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Python except Exception — too broad" },
+  { id: "STAR_IMPORT", category: "inconsistency", tier: 0, tool: "ast-grep", desc: "Python star import — import specific names" },
+
+  // file-level metrics (modularity, architecture)
+  { id: "GOD_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 1200 LOC — split into modules" },
+  { id: "LARGE_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 800 LOC — approaching god file" },
+  { id: "LONG_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 500 LOC — consider splitting" },
+  { id: "BARREL_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "Barrel re-export file — use direct imports" },
+  { id: "STAR_REEXPORT", category: "inconsistency", tier: 0, tool: "file-metrics", desc: "export * from — pollutes namespace" },
+  { id: "MIXED_CONCERNS", category: "complexity", tier: 0, tool: "file-metrics", desc: "Route + DB queries in same file — split layers" },
+  { id: "IMPORT_HEAVY", category: "complexity", tier: 0, tool: "file-metrics", desc: "15+ imports — too many concerns in one file" },
+  { id: "MONOLITH_ROUTE", category: "complexity", tier: 0, tool: "file-metrics", desc: "4+ HTTP methods in one file — split to VSA" },
 ];
 
 export default defineCommand({

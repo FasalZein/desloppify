@@ -7,6 +7,7 @@ import { runMadge } from "../analyzers/madge";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
 import { runGrepPatterns } from "../analyzers/grep-patterns";
+import { runFileMetrics } from "../analyzers/file-metrics";
 
 export default defineCommand({
   meta: { name: "scan", description: "Analyze codebase for issues" },
@@ -24,8 +25,9 @@ export default defineCommand({
     // Run all available analyzers in parallel
     const tasks: Promise<Issue[]>[] = [];
 
-    // grep patterns always run (no external dep)
+    // grep patterns and file metrics always run (no external dep)
     tasks.push(runGrepPatterns(targetPath));
+    tasks.push(runFileMetrics(targetPath));
 
     if (tools.knip && (!args.category || args.category === "dead-code")) {
       tasks.push(runKnip(targetPath));

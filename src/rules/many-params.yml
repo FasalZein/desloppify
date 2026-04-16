@@ -1,0 +1,25 @@
+id: MANY_PARAMS
+language: typescript
+rule:
+  kind: formal_parameters
+  has:
+    kind: required_parameter
+    stopBy: end
+    field: parameter
+  all:
+    - has:
+        kind: required_parameter
+    - has:
+        kind: required_parameter
+        stopBy: end
+    - has:
+        kind: required_parameter
+        stopBy: end
+    - has:
+        kind: required_parameter
+        stopBy: end
+    - has:
+        kind: required_parameter
+        stopBy: end
+message: "Function with 5+ parameters — consider an options object"
+severity: warning

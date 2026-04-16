@@ -7,6 +7,7 @@ import { runMadge } from "../analyzers/madge";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
 import { runGrepPatterns } from "../analyzers/grep-patterns";
+import { runFileMetrics } from "../analyzers/file-metrics";
 
 /**
  * Scoring system for desloppify.
@@ -114,6 +115,7 @@ export default defineCommand({
 
     const tasks: Promise<Issue[]>[] = [];
     tasks.push(runGrepPatterns(targetPath));
+    tasks.push(runFileMetrics(targetPath));
     if (tools.knip) tasks.push(runKnip(targetPath));
     if (tools.madge) tasks.push(runMadge(targetPath));
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));
@@ -165,11 +167,11 @@ export default defineCommand({
       const maxCat = Math.max(...sorted.map(([k]) => k.length));
       for (const [cat, data] of sorted) {
         const cappedPenalty = Math.min(data.penalty, MAX_CATEGORY_PENALTY);
-        const bar = "█".repeat(Math.min(30, Math.ceil(cappedPenalty)));
+        const gauge = "█".repeat(Math.min(30, Math.ceil(cappedPenalty)));
         const penaltyStr = Math.round(data.penalty * 10) / 10;
         const cappedStr = data.penalty > MAX_CATEGORY_PENALTY ? ` (capped ${MAX_CATEGORY_PENALTY})` : "";
         console.log(
-          `  ${cat.padEnd(maxCat)}  ${String(data.count).padStart(4)} issues  ${String(penaltyStr).padStart(6)} pts  ${data.weight}x  ${bar}${cappedStr}`
+          `  ${cat.padEnd(maxCat)}  ${String(data.count).padStart(4)} issues  ${String(penaltyStr).padStart(6)} pts  ${data.weight}x  ${gauge}${cappedStr}`
         );
       }
       console.log("");

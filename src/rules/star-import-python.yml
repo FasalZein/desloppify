@@ -1,0 +1,8 @@
+id: STAR_IMPORT
+language: python
+rule:
+  kind: import_from_statement
+  has:
+    kind: wildcard_import
+message: "Star import (from X import *) — import specific names"
+severity: warning

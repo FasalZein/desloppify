@@ -1,0 +1,17 @@
+id: CATCH_LOG_CONTINUE
+language: typescript
+rule:
+  kind: catch_clause
+  has:
+    kind: statement_block
+    has:
+      kind: expression_statement
+      has:
+        kind: call_expression
+        has:
+          kind: member_expression
+          has:
+            kind: property_identifier
+            regex: "^(log|warn|error|info|debug)$"
+message: "Catch logs and continues — error is swallowed"
+severity: warning

@@ -1,0 +1,7 @@
+id: NOOP_CALLBACK
+language: typescript
+rule:
+  kind: arrow_function
+  pattern: "() => {}"
+message: "No-op callback — hides missing handler"
+severity: warning

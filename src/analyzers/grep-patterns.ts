@@ -137,7 +137,7 @@ const RULES: GrepRule[] = [
   // ai-slop: explicit true/false comparison
   {
     id: "EXPLICIT_TRUE_COMPARE",
-    pattern: /===?\s*(true|false)\b/,
+    pattern: /\w\s*===?\s*(true|false)\s*[;),\]}&|?:]/,
     category: "ai-slop",
     severity: "LOW",
     tier: 1,
@@ -176,7 +176,7 @@ const RULES: GrepRule[] = [
   // ai-slop: lint escape
   {
     id: "LINT_ESCAPE",
-    pattern: /(eslint-disable|@ts-ignore|@ts-nocheck|\/\/\s*noqa|#\s*type:\s*ignore)/,
+    pattern: /^\s*(\/\/\s*eslint-disable|\/\*\s*eslint-disable|\/\/\s*@ts-ignore|\/\/\s*@ts-nocheck|#\s*noqa|#\s*type:\s*ignore)/,
     category: "ai-slop",
     severity: "MEDIUM",
     tier: 0,
@@ -349,19 +349,10 @@ const RULES: GrepRule[] = [
     tier: 0,
     message: "Possibly redundant type cast — check if value is already the right type",
   },
-  // ai-slop: async function with no await
-  {
-    id: "ASYNC_NO_AWAIT",
-    pattern: /^\s*(export\s+)?(async\s+function\s+\w+|async\s+\w+\s*=\s*\()/,
-    category: "ai-slop",
-    severity: "LOW",
-    tier: 0,
-    message: "Async function — verify it actually uses await",
-  },
-  // duplication: key={index} when mapping
+  // duplication: key={index} when mapping (only in JSX files)
   {
     id: "KEY_INDEX",
-    pattern: /key=\{(index|i|idx)\}/,
+    pattern: /^\s*<\w[\w.]*\s+.*key=\{(index|i|idx)\}/,
     category: "ai-slop",
     severity: "LOW",
     tier: 0,
@@ -387,6 +378,33 @@ const RULES: GrepRule[] = [
   },
 ];
 
+const SKIP_PATH = /node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//;
+const TEST_FILE = /\.(test|spec|mock|fixture)\.(ts|tsx|js|jsx|py)$|__tests__|tests\/|test_/;
+
+function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): Issue[] {
+  const found: Issue[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    for (const rule of RULES) {
+      if (rule.skipTest && isTestFile) continue;
+      if (!rule.pattern.test(line)) continue;
+      if (isLineIgnored(line, rule.id)) continue;
+      found.push({
+        id: rule.id,
+        category: rule.category,
+        severity: rule.severity,
+        tier: rule.tier,
+        file: filePath,
+        line: i + 1,
+        message: rule.message,
+        fix: rule.fix,
+        tool: "grep",
+      });
+    }
+  }
+  return found;
+}
+
 export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
   const issues: Issue[] = [];
   const ignorePatterns = await loadIgnorePatterns(targetPath);
@@ -397,41 +415,13 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
     absolute: true,
     dot: false,
   })) {
-    // Skip node_modules, .git, dist, build, coverage, env, vendor, out, bundled assets
-    if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//.test(filePath)) continue;
-
-    // Skip files matching .desloppifyignore
+    if (SKIP_PATH.test(filePath)) continue;
     if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
 
     try {
-      const file = Bun.file(filePath);
-      const content = await file.text();
-      const lines = content.split("\n");
-
-      const isTestFile = /\.(test|spec|mock|fixture)\.(ts|tsx|js|jsx|py)$|__tests__|tests\/|test_/.test(filePath);
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        for (const rule of RULES) {
-          if (rule.skipTest && isTestFile) continue;
-          if (rule.pattern.test(line)) {
-            // Check inline desloppify:ignore
-            if (isLineIgnored(line, rule.id)) continue;
-
-            issues.push({
-              id: rule.id,
-              category: rule.category,
-              severity: rule.severity,
-              tier: rule.tier,
-              file: filePath,
-              line: i + 1,
-              message: rule.message,
-              fix: rule.fix,
-              tool: "grep",
-            });
-          }
-        }
-      }
+      const content = await Bun.file(filePath).text();
+      const found = scanFileLines(filePath, content.split("\n"), TEST_FILE.test(filePath));
+      issues.push(...found);
     } catch {
       // Unreadable file, skip
     }

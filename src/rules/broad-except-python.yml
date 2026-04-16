@@ -1,0 +1,9 @@
+id: BROAD_EXCEPT
+language: python
+rule:
+  kind: except_clause
+  has:
+    kind: identifier
+    regex: "^Exception$"
+message: "Broad 'except Exception' — catch specific exception types"
+severity: warning

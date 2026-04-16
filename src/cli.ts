@@ -4,7 +4,7 @@ import { defineCommand, runMain } from "citty";
 const main = defineCommand({
   meta: {
     name: "desloppify",
-    version: "1.0.0",
+    version: "1.2.0",
     description: "Agent-agnostic code cleanup CLI. Detects 11 categories of code rot.",
   },
   subCommands: {

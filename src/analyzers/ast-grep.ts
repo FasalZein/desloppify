@@ -208,4 +208,45 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "todo!()/unimplemented!() macro left in code",
     fix: "Implement the missing logic or remove",
   },
+  // New structural rules
+  MANY_PARAMS: {
+    category: "complexity",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Function with 5+ parameters — consider an options object",
+  },
+  CATCH_LOG_CONTINUE: {
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 2,
+    message: "Catch block logs and continues — error is swallowed",
+    fix: "Re-throw after logging, or handle the error properly",
+  },
+  CATCH_RETURN_DEFAULT: {
+    category: "defensive-programming",
+    severity: "HIGH",
+    tier: 2,
+    message: "Catch block returns null/default value, hiding errors",
+    fix: "Let the error propagate or handle it meaningfully",
+  },
+  DEAD_VARIABLE: {
+    category: "dead-code",
+    severity: "MEDIUM",
+    tier: 2,
+    message: "Variable declared but possibly unused",
+    fix: "Remove if unused, or verify it's needed",
+  },
+  // Python structural
+  BROAD_EXCEPT: {
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Broad 'except Exception' — catch specific exception types",
+  },
+  STAR_IMPORT: {
+    category: "inconsistency",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Star import (from X import *) — import specific names",
+  },
 };

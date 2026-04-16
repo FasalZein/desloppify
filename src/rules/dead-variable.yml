@@ -1,0 +1,13 @@
+id: DEAD_VARIABLE
+language: typescript
+rule:
+  kind: lexical_declaration
+  pattern: "const $VAR = $EXPR;"
+  not:
+    follows:
+      stopBy: end
+      has:
+        kind: identifier
+        regex: $VAR
+message: "Variable declared but may not be used — verify"
+severity: warning
