@@ -7,22 +7,22 @@ CLI does deterministic detection. Your agent handles triage and judgment fixes. 
 ## Install
 
 ```bash
-# Install the skill (works with any agent that reads SKILL.md)
+# Run directly — no install needed (requires Bun)
+bunx desloppify scan .
+bunx desloppify score .
+
+# Or install globally
+bun install -g desloppify
+
+# Install the agent skill (works with any agent that reads SKILL.md)
 npx skills add FasalZein/desloppify
-
-# Install the CLI (requires Bun)
-cd ~/.claude/skills/desloppify && bun install && bun link
 ```
-
-After restarting your session, the `/desloppify` command is available.
 
 ### Manual Install
 
 ```bash
-# Clone into your skills directory
+# Clone and link
 git clone https://github.com/FasalZein/desloppify.git ~/.claude/skills/desloppify
-
-# Install CLI dependencies and link globally
 cd ~/.claude/skills/desloppify && bun install && bun link
 ```
 

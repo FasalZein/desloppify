@@ -4,8 +4,15 @@
   "description": "Agent-agnostic code cleanup CLI. Detects 116+ rules across 16 categories of AI code rot.",
   "type": "module",
   "bin": {
-    "desloppify": "./src/cli.ts"
+    "desloppify": "./bin/desloppify.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "bun src/cli.ts",
     "scan": "bun src/cli.ts scan",
@@ -13,7 +20,24 @@
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
     "check-tools": "bun src/cli.ts check-tools",
-    "build": "bun build --compile --outfile desloppify src/cli.ts"
+    "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts"
+  },
+  "keywords": [
+    "ai-slop",
+    "code-quality",
+    "linter",
+    "cleanup",
+    "dead-code",
+    "cli",
+    "agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FasalZein/desloppify"
+  },
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest"
