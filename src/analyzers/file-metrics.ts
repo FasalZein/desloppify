@@ -172,6 +172,93 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
         });
       }
 
+      // GENERIC_BUCKET_FILE: utils.ts, helpers.ts, misc.ts with 10+ exports
+      const fileName = filePath.split("/").pop() ?? "";
+      if (/^(utils|helpers|misc|common|shared|lib)\.(ts|tsx|js|jsx|py)$/.test(fileName) && loc > 100) {
+        issues.push({
+          id: "GENERIC_BUCKET_FILE",
+          category: "naming-semantics",
+          severity: "MEDIUM",
+          tier: 0,
+          file: filePath,
+          line: 1,
+          message: `Generic bucket file "${fileName}" with ${loc} lines — split into domain-specific modules`,
+          tool: "file-metrics",
+        });
+      }
+
+      // DEBUG_VARIANT_FILE: files with _v2, _old, _backup, _copy suffixes
+      if (/_v\d+|_old|_new|_backup|_copy|_fixed|_temp|_bak|_draft/.test(fileName)) {
+        issues.push({
+          id: "DEBUG_VARIANT_FILE",
+          category: "ai-slop",
+          severity: "MEDIUM",
+          tier: 0,
+          file: filePath,
+          line: 1,
+          message: `Debug variant file "${fileName}" — delete or rename (git has history)`,
+          tool: "file-metrics",
+        });
+      }
+
+      // SCATTERED_ENV: process.env in non-config files
+      const isConfigFile = /config\.|settings\.|env\.|\.env/.test(filePath);
+      if (!isConfigFile && !isTestFile) {
+        let envCount = 0;
+        for (const line of lines) {
+          if (/process\.env\.\w+/.test(line)) envCount++;
+        }
+        if (envCount >= 3) {
+          issues.push({
+            id: "SCATTERED_ENV",
+            category: "inconsistency",
+            severity: "MEDIUM",
+            tier: 0,
+            file: filePath,
+            line: 1,
+            message: `${envCount} direct process.env accesses — centralize in a config module`,
+            tool: "file-metrics",
+          });
+        }
+      }
+
+      // MANY_USESTATE: React component with 6+ useState calls
+      if (/\.(tsx|jsx)$/.test(filePath)) {
+        let useStateCount = 0;
+        for (const line of lines) {
+          if (/\buseState\s*[<(]/.test(line)) useStateCount++;
+        }
+        if (useStateCount >= 6) {
+          issues.push({
+            id: "MANY_USESTATE",
+            category: "complexity",
+            severity: "MEDIUM",
+            tier: 0,
+            file: filePath,
+            line: 1,
+            message: `${useStateCount} useState calls — consider useReducer or splitting the component`,
+            tool: "file-metrics",
+          });
+        }
+      }
+
+      // VERB_IN_ROUTE: REST routes with verbs in the URL path
+      for (let i = 0; i < lines.length; i++) {
+        const routeMatch = lines[i].match(/\.(get|post|put|patch|delete)\s*\(\s*["'`]\/[^"'`]*\b(create|get|fetch|update|delete|remove|process|handle|retrieve|list)\w*["'`]/i);
+        if (routeMatch) {
+          issues.push({
+            id: "VERB_IN_ROUTE",
+            category: "inconsistency",
+            severity: "LOW",
+            tier: 0,
+            file: filePath,
+            line: i + 1,
+            message: "Verb in REST route path — HTTP method is already the verb. Use nouns only.",
+            tool: "file-metrics",
+          });
+        }
+      }
+
     } catch {
       // Unreadable file, skip
     }

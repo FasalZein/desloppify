@@ -8,6 +8,7 @@ import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
 import { runGrepPatterns } from "../analyzers/grep-patterns";
 import { runFileMetrics } from "../analyzers/file-metrics";
+import { runGrepExtended } from "../analyzers/grep-extended";
 
 /**
  * Scoring system for desloppify.
@@ -45,12 +46,17 @@ const SEVERITY_POINTS: Record<string, number> = {
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
   "security-slop": 2.0,
+  "runtime-validation": 2.0,
+  "async-correctness": 1.5,
   "weak-types": 1.5,
   "defensive-programming": 1.5,
   "circular-deps": 1.5,
+  "test-quality": 1.0,
   "dead-code": 1.0,
   "complexity": 1.0,
   "duplication": 1.0,
+  "accessibility": 1.0,
+  "naming-semantics": 0.5,
   "ai-slop": 0.5,
   "legacy-code": 0.5,
   "type-fragmentation": 0.5,
@@ -116,6 +122,7 @@ export default defineCommand({
     const tasks: Promise<Issue[]>[] = [];
     tasks.push(runGrepPatterns(targetPath));
     tasks.push(runFileMetrics(targetPath));
+    tasks.push(runGrepExtended(targetPath));
     if (tools.knip) tasks.push(runKnip(targetPath));
     if (tools.madge) tasks.push(runMadge(targetPath));
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));

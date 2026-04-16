@@ -1,6 +1,6 @@
 # Desloppify
 
-Agent-agnostic code cleanup. Catches 82+ anti-patterns across 11 categories that AI coding agents introduce into codebases — god files, barrel exports, mixed concerns, security slop, defensive try-catch, weak types, dead code, AI narration comments, circular deps, and more.
+Agent-agnostic code cleanup. Catches 116+ anti-patterns across 16 categories that AI coding agents introduce into codebases. From god files and barrel exports to weak tests, accessibility violations, async correctness, runtime validation gaps, naming semantics, and security slop. The definitive AI slop destroyer.
 
 CLI does deterministic detection. Your agent handles triage and judgment fixes. Each fix category runs on its own git worktree for safe parallel execution.
 
@@ -78,7 +78,12 @@ Or invoke via your agent: just say "desloppify" or "clean up code" and the skill
 | `type-fragmentation` | Duplicate types, complex inline types |
 | `inconsistency` | Mixed naming, mixed exports, unlisted deps, `export *` namespace pollution, star imports |
 | `complexity` | God files (1200+ LOC), large files (800+), long files (500+), barrel exports, mixed concerns (route+DB), import-heavy files (15+), monolith routes, deep nesting, many params |
-| `security-slop` | Hardcoded secrets, SQL injection, hardcoded URLs |
+| `security-slop` | Hardcoded secrets, SQL injection, hardcoded URLs, eval/exec, pickle |
+| `test-quality` | Empty tests, weak assertions, sleepy tests, skipped tests, snapshot overuse |
+| `async-correctness` | forEach async, blocking requests in async, sequential awaits, callback/promise mix |
+| `runtime-validation` | Unvalidated req.body, JSON.parse casts, fetch response casts, localStorage casts |
+| `accessibility` | Interactive divs, missing aria-labels, missing alt text, inputs without labels |
+| `naming-semantics` | Numeric suffixes, generic bucket files, Python builtin shadowing |
 
 ## Scoring System
 

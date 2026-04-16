@@ -12,7 +12,12 @@ export type Category =
   | "type-fragmentation"
   | "inconsistency"
   | "complexity"
-  | "security-slop";
+  | "security-slop"
+  | "test-quality"
+  | "async-correctness"
+  | "runtime-validation"
+  | "accessibility"
+  | "naming-semantics";
 
 export interface Issue {
   id: string;

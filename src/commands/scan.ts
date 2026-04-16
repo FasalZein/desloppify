@@ -8,6 +8,7 @@ import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
 import { runGrepPatterns } from "../analyzers/grep-patterns";
 import { runFileMetrics } from "../analyzers/file-metrics";
+import { runGrepExtended } from "../analyzers/grep-extended";
 
 export default defineCommand({
   meta: { name: "scan", description: "Analyze codebase for issues" },
@@ -28,6 +29,7 @@ export default defineCommand({
     // grep patterns and file metrics always run (no external dep)
     tasks.push(runGrepPatterns(targetPath));
     tasks.push(runFileMetrics(targetPath));
+    tasks.push(runGrepExtended(targetPath));
 
     if (tools.knip && (!args.category || args.category === "dead-code")) {
       tasks.push(runKnip(targetPath));
