@@ -93,6 +93,22 @@ const RULES = [
 
   // additional defensive
   { id: "UNCHECKED_PROMISE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Empty .then()/.catch()" },
+
+  // new ai-slop rules from real-world audit
+  { id: "HARDCODED_FAKE_DATA", category: "ai-slop", tier: 0, tool: "grep", desc: "Hardcoded data array — should come from API" },
+  { id: "UNNECESSARY_INTERMEDIATE", category: "ai-slop", tier: 0, tool: "grep", desc: "Unnecessary intermediate variable before return" },
+  { id: "USEMEMO_EMPTY_DEPS", category: "ai-slop", tier: 1, tool: "grep", desc: "useMemo with empty deps on constant" },
+  { id: "UNDERSCORE_STATE", category: "ai-slop", tier: 0, tool: "grep", desc: "Underscore-prefixed useState — dead state" },
+  { id: "REDUNDANT_CAST", category: "ai-slop", tier: 0, tool: "grep", desc: "Possibly redundant String/Number/Boolean cast" },
+  { id: "ASYNC_NO_AWAIT", category: "ai-slop", tier: 0, tool: "grep", desc: "Async function — verify it uses await" },
+  { id: "KEY_INDEX", category: "ai-slop", tier: 0, tool: "grep", desc: "Array index as React key — use stable ID" },
+  { id: "OR_CASCADE", category: "ai-slop", tier: 0, tool: "grep", desc: "Chained defensive .get() or fallbacks" },
+
+  // new security-slop
+  { id: "CLIENT_GENERATED_ID", category: "security-slop", tier: 0, tool: "grep", desc: "Client-generated ID for server records" },
+
+  // new complexity
+  { id: "BOOLEAN_FLAG_PARAMS", category: "complexity", tier: 0, tool: "grep", desc: "3+ boolean parameters — use options object" },
 ];
 
 export default defineCommand({

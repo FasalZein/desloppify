@@ -1,6 +1,6 @@
 # Desloppify
 
-Agent-agnostic code cleanup. Catches 63+ anti-patterns across 11 categories that AI coding agents introduce into codebases — security slop, defensive try-catch, weak types, dead code, AI narration comments, circular deps, and more.
+Agent-agnostic code cleanup. Catches 73+ anti-patterns across 11 categories that AI coding agents introduce into codebases — security slop, defensive try-catch, weak types, dead code, AI narration comments, circular deps, and more.
 
 CLI does deterministic detection. Your agent handles triage and judgment fixes. Each fix category runs on its own git worktree for safe parallel execution.
 
@@ -53,6 +53,10 @@ desloppify scan . --category ai-slop
 # Auto-fix safe issues (tier 1 only)
 desloppify fix . --safe
 
+# Get a weighted quality score
+desloppify score .
+desloppify score . --json
+
 # List all detection rules
 desloppify rules
 desloppify rules --category weak-types
@@ -76,13 +80,27 @@ Or invoke via your agent: just say "desloppify" or "clean up code" and the skill
 | `complexity` | Long functions, deep nesting, many params, nested ternaries |
 | `security-slop` | Hardcoded secrets, SQL injection, hardcoded URLs |
 
+## Scoring System
+
+```
+╔════════════════════════════╗
+║  DESLOPPIFY SCORE:  73     ║
+║  GRADE: B                   ║
+╚════════════════════════════╝
+```
+
+Each issue deducts points based on severity (CRITICAL=5, HIGH=3, MEDIUM=1, LOW=0.5) multiplied by category weight (security-slop=2x, weak-types/defensive/circular-deps=1.5x, ai-slop/legacy/inconsistency=0.5x). Per-category penalty capped at 20 points to prevent one category from dominating.
+
+**Grades:** A+(95-100) A(85-94) B(70-84) C(50-69) D(30-49) F(0-29)
+
 ## How It Works
 
 ```
 1. Scan    → desloppify scan [path]           # deterministic detection
-2. Triage  → agent reviews JSON output        # judgment: fix / skip / flag
-3. Fix     → one sub-agent per category       # each on its own git worktree
-4. Merge   → merge worktree branches          # re-scan to verify improvement
+2. Score   → desloppify score [path]          # weighted quality grade
+3. Triage  → agent reviews JSON output        # judgment: fix / skip / flag
+4. Fix     → one sub-agent per category       # each on its own git worktree
+5. Merge   → merge worktree branches          # re-scan to verify improvement
 ```
 
 **Hard rule: no worktree = no agent.** Every fix sub-agent runs on an isolated git worktree. If worktree creation fails, that category is skipped — never run without isolation.
@@ -122,8 +140,10 @@ desloppify/
 │   ├── tools.ts                  # Tool detection
 │   ├── commands/
 │   │   ├── scan.ts               # Scan orchestrator
+│   │   ├── score.ts              # Weighted scoring system
 │   │   ├── fix.ts                # Auto-fix engine
 │   │   ├── rules.ts              # Rule catalog
+│   │   ├── worktrees.ts          # Worktree setup generator
 │   │   └── check-tools.ts        # Tool availability
 │   ├── analyzers/
 │   │   ├── ast-grep.ts           # Structural patterns

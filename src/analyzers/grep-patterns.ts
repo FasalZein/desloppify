@@ -10,6 +10,7 @@ interface GrepRule {
   tier: Tier;
   message: string;
   fix?: string;
+  skipTest?: boolean; // Skip this rule in test files
 }
 
 const RULES: GrepRule[] = [
@@ -227,6 +228,7 @@ const RULES: GrepRule[] = [
     severity: "CRITICAL",
     tier: 0,
     message: "Hardcoded secret — move to environment variable",
+    skipTest: true,
   },
   // security-slop: hardcoded localhost/URLs
   {
@@ -292,6 +294,97 @@ const RULES: GrepRule[] = [
     tier: 0,
     message: "Empty .then()/.catch() — handle the promise result",
   },
+  // ai-slop: hardcoded fake data as real analytics
+  {
+    id: "HARDCODED_FAKE_DATA",
+    pattern: /^\s*(const|let|var)\s+\w+(Data|Items|Stats|Metrics)\s*=\s*\[$/,
+    category: "ai-slop",
+    severity: "HIGH",
+    tier: 0,
+    message: "Hardcoded data array — should come from API or props",
+  },
+  // ai-slop: unnecessary intermediate variable before return
+  {
+    id: "UNNECESSARY_INTERMEDIATE",
+    pattern: /^\s*(const|let)\s+\w+\s*=\s*.+;\s*\n\s*return\s+\w+;\s*$/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 0,
+    message: "Unnecessary intermediate variable — return the expression directly",
+  },
+  // ai-slop: useMemo with empty deps on a constant
+  {
+    id: "USEMEMO_EMPTY_DEPS",
+    pattern: /useMemo\(\s*\(\)\s*=>\s*\w+\s*,\s*\[\s*\]\s*\)/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 1,
+    message: "useMemo with empty deps on a constant — just use the value directly",
+    fix: "Remove the useMemo wrapper",
+  },
+  // ai-slop: ghost state wired to disabled controls
+  {
+    id: "UNDERSCORE_STATE",
+    pattern: /\[\s*_\w+\s*,\s*set\w+\s*\]\s*=\s*useState/,
+    category: "ai-slop",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Underscore-prefixed state variable — likely unused dead state",
+  },
+  // complexity: boolean flag parameters (3+)
+  {
+    id: "BOOLEAN_FLAG_PARAMS",
+    pattern: /\w+\s*:\s*boolean\s*[,)=].*\w+\s*:\s*boolean\s*[,)=].*\w+\s*:\s*boolean/,
+    category: "complexity",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "3+ boolean parameters — use an options object or separate functions",
+  },
+  // ai-slop: redundant type cast on already-typed value
+  {
+    id: "REDUNDANT_CAST",
+    pattern: /\b(String|Number|Boolean)\(\s*\w+\s*\)\s*$/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 0,
+    message: "Possibly redundant type cast — check if value is already the right type",
+  },
+  // ai-slop: async function with no await
+  {
+    id: "ASYNC_NO_AWAIT",
+    pattern: /^\s*(export\s+)?(async\s+function\s+\w+|async\s+\w+\s*=\s*\()/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 0,
+    message: "Async function — verify it actually uses await",
+  },
+  // duplication: key={index} when mapping
+  {
+    id: "KEY_INDEX",
+    pattern: /key=\{(index|i|idx)\}/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 0,
+    message: "Using array index as React key — use a stable ID if available",
+  },
+  // security-slop: client-generated ID for server data
+  {
+    id: "CLIENT_GENERATED_ID",
+    pattern: /`\w+_\$\{Date\.now\(\)\}_\$\{Math\.random\(\)/,
+    category: "security-slop",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Client-generated ID — let the server generate IDs for persisted records",
+  },
+  // ai-slop: defensive or-cascade
+  {
+    id: "OR_CASCADE",
+    pattern: /\.get\(\s*["']\w+["']\s*\)\s*(or|\|\|)\s*\S+.*\.get\(\s*["']\w+["']\s*\)\s*(or|\|\|)/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 0,
+    message: "Chained defensive .get() or fallbacks — simplify the data model",
+  },
 ];
 
 export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
@@ -304,8 +397,8 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
     absolute: true,
     dot: false,
   })) {
-    // Skip node_modules, .git, dist, build
-    if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\./.test(filePath)) continue;
+    // Skip node_modules, .git, dist, build, coverage, env, vendor, out, bundled assets
+    if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//.test(filePath)) continue;
 
     // Skip files matching .desloppifyignore
     if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
@@ -315,9 +408,12 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
       const content = await file.text();
       const lines = content.split("\n");
 
+      const isTestFile = /\.(test|spec|mock|fixture)\.(ts|tsx|js|jsx|py)$|__tests__|tests\/|test_/.test(filePath);
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         for (const rule of RULES) {
+          if (rule.skipTest && isTestFile) continue;
           if (rule.pattern.test(line)) {
             // Check inline desloppify:ignore
             if (isLineIgnored(line, rule.id)) continue;

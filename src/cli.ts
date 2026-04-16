@@ -5,7 +5,7 @@ const main = defineCommand({
   meta: {
     name: "desloppify",
     version: "1.0.0",
-    description: "Agent-agnostic code cleanup CLI. Detects 10 categories of code rot.",
+    description: "Agent-agnostic code cleanup CLI. Detects 11 categories of code rot.",
   },
   subCommands: {
     scan: () => import("./commands/scan").then((m) => m.default),
@@ -13,6 +13,7 @@ const main = defineCommand({
     rules: () => import("./commands/rules").then((m) => m.default),
     "check-tools": () => import("./commands/check-tools").then((m) => m.default),
     worktrees: () => import("./commands/worktrees").then((m) => m.default),
+    score: () => import("./commands/score").then((m) => m.default),
   },
 });
 

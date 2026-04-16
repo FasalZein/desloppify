@@ -1,7 +1,7 @@
 ---
 name: desloppify
 description: >
-  Agent-agnostic code cleanup. CLI detects 63+ rules across 11 categories.
+  Agent-agnostic code cleanup. CLI detects 73+ rules across 11 categories.
   Agent triages, spawns fix sub-agents on git worktrees, merges results.
   Use when: desloppify, clean up code, remove slop, code quality audit,
   deep refactor, remove AI slop, remove dead code, fix types.
@@ -97,7 +97,8 @@ If `/wiki` is available: `wiki checkpoint` → `wiki maintain` → `wiki closeou
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |
-| `desloppify rules` | List all 63+ detection rules |
+| `desloppify rules` | List all 73+ detection rules |
+| `desloppify score [path]` | Weighted quality score + grade |
 | `desloppify rules --category <id>` | Filter by category |
 | `desloppify check-tools` | Show available analyzers |
 | `desloppify worktrees [path]` | Print worktree setup commands |

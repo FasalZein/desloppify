@@ -1,7 +1,7 @@
 {
   "name": "desloppify",
-  "version": "1.0.0",
-  "description": "Agent-agnostic code cleanup CLI. Detects 10 categories of code rot.",
+  "version": "1.1.0",
+  "description": "Agent-agnostic code cleanup CLI. Detects 73+ rules across 11 categories of AI code rot.",
   "type": "module",
   "bin": {
     "desloppify": "./src/cli.ts"
@@ -9,6 +9,7 @@
   "scripts": {
     "start": "bun src/cli.ts",
     "scan": "bun src/cli.ts scan",
+    "score": "bun src/cli.ts score",
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
     "check-tools": "bun src/cli.ts check-tools"
