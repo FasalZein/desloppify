@@ -22,7 +22,6 @@ export default defineCommand({
     const maxTier: Tier = args.all ? 3 : args.confident ? 2 : 1;
     const dryRun = args["dry-run"] ?? false;
 
-    // Step 1: Git checkpoint
     if (!dryRun) {
       const checkpoint = gitCheckpoint(targetPath);
       if (checkpoint) {
@@ -32,7 +31,6 @@ export default defineCommand({
       }
     }
 
-    // Step 2: Detect safety nets
     const tools = detectTools();
     const nets: string[] = ["git"];
     if (tools.tsc) nets.push("tsc");
@@ -43,7 +41,6 @@ export default defineCommand({
     console.log(`Max tier: ${maxTier}`);
     console.log("");
 
-    // Step 3: Scan for fixable issues
     const allIssues: Issue[] = [];
     const tasks: Promise<Issue[]>[] = [runGrepPatterns(targetPath)];
 
@@ -77,7 +74,6 @@ export default defineCommand({
       process.exit(0);
     }
 
-    // Step 4: Apply fixes by tier (lowest first)
     let applied = 0;
     let skipped = 0;
 

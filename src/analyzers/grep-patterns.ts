@@ -65,7 +65,7 @@ const RULES: GrepRule[] = [
   // ai-slop: demo/placeholder markers
   {
     id: "DEMO_PLACEHOLDER",
-    pattern: /\/\/\s*.*(for demo|placeholder|mock data|sample data|dummy data|fake data|wire.*real.*api)/i,
+    pattern: /^\s*\/\/\s*(for demo|placeholder|mock data|sample data|dummy data|fake data|wire.*real.*api|todo.*wire|todo.*replace.*real)/i,
     category: "ai-slop",
     severity: "MEDIUM",
     tier: 1,
@@ -75,11 +75,11 @@ const RULES: GrepRule[] = [
   // legacy: deprecated annotations
   {
     id: "DEPRECATED_ANNOTATION",
-    pattern: /@deprecated/,
+    pattern: /^\s*(\*\s*)?@deprecated\b/,
     category: "legacy-code",
     severity: "MEDIUM",
     tier: 2,
-    message: "@deprecated code still present",
+    message: "Deprecated annotation — this code should be removed",
     fix: "Remove and update callers",
   },
   // complexity: deeply nested callbacks
@@ -103,8 +103,8 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
     absolute: true,
     dot: false,
   })) {
-    // Skip node_modules, .git, dist, build, and desloppify's own source
-    if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|desloppify\/src\//.test(filePath)) continue;
+    // Skip node_modules, .git, dist, build
+    if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\./.test(filePath)) continue;
 
     try {
       const file = Bun.file(filePath);
