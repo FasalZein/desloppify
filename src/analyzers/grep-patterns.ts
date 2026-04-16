@@ -1,5 +1,6 @@
 import type { Issue, Category, Severity, Tier } from "../types";
 import { Glob } from "bun";
+import { loadIgnorePatterns, isFileIgnored, isLineIgnored } from "../ignore";
 
 interface GrepRule {
   id: string;
@@ -222,6 +223,7 @@ const RULES: GrepRule[] = [
 
 export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
   const issues: Issue[] = [];
+  const ignorePatterns = await loadIgnorePatterns(targetPath);
   const glob = new Glob("**/*.{ts,tsx,js,jsx,py,rs,go,java,kt,rb,swift,c,cpp,cs}");
 
   for await (const filePath of glob.scan({
@@ -232,6 +234,9 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
     // Skip node_modules, .git, dist, build
     if (/node_modules|\.git\/|\/dist\/|\/build\/|\.min\./.test(filePath)) continue;
 
+    // Skip files matching .desloppifyignore
+    if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
+
     try {
       const file = Bun.file(filePath);
       const content = await file.text();
@@ -241,6 +246,9 @@ export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
         const line = lines[i];
         for (const rule of RULES) {
           if (rule.pattern.test(line)) {
+            // Check inline desloppify:ignore
+            if (isLineIgnored(line, rule.id)) continue;
+
             issues.push({
               id: rule.id,
               category: rule.category,

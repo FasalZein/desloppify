@@ -1,10 +1,12 @@
 import type { Issue } from "../types";
 import { resolve } from "path";
+import { loadIgnorePatterns, isFileIgnored } from "../ignore";
 
 const RULES_DIR = resolve(import.meta.dir, "../../src/rules");
 
 export async function runAstGrep(targetPath: string): Promise<Issue[]> {
   const sgCmd = Bun.which("sg") ? "sg" : "ast-grep";
+  const ignorePatterns = await loadIgnorePatterns(targetPath);
 
   const result = Bun.spawnSync(
     [sgCmd, "scan", "--rule", RULES_DIR, targetPath, "--json=stream"],
@@ -28,12 +30,17 @@ export async function runAstGrep(targetPath: string): Promise<Issue[]> {
       const meta = RULE_META[ruleId];
       if (!meta) continue;
 
+      const file = match.file ?? match.path ?? "";
+
+      // Skip files matching .desloppifyignore
+      if (isFileIgnored(file, targetPath, ignorePatterns)) continue;
+
       issues.push({
         id: ruleId,
         category: meta.category,
         severity: meta.severity,
         tier: meta.tier,
-        file: match.file ?? match.path ?? "",
+        file,
         line: match.range?.start?.line ?? match.start?.line ?? 0,
         message: match.message ?? meta.message,
         fix: meta.fix,

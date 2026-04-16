@@ -12,6 +12,7 @@ const main = defineCommand({
     fix: () => import("./commands/fix").then((m) => m.default),
     rules: () => import("./commands/rules").then((m) => m.default),
     "check-tools": () => import("./commands/check-tools").then((m) => m.default),
+    worktrees: () => import("./commands/worktrees").then((m) => m.default),
   },
 });
 
