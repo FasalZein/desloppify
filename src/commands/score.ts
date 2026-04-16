@@ -1,6 +1,7 @@
+import * as p from "@clack/prompts";
 import { defineCommand } from "citty";
 import { resolve } from "path";
-import type { Issue, Category, ScanReport } from "../types";
+import type { Issue } from "../types";
 import { detectTools } from "../tools";
 import { runKnip } from "../analyzers/knip";
 import { runMadge } from "../analyzers/madge";
@@ -10,6 +11,11 @@ import { walkFiles } from "../analyzers/file-walker";
 import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
 import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
 import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
+import { runArchitectureProfileFromEntries } from "../analyzers/architecture-profile";
+import { buildArchitectureSummary, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
+import { createSpinner, humanCategory, scanIntro, scanOutro, showScore, showTools, t } from "../ui";
+
+const VERSION = "0.0.1";
 
 /**
  * Scoring system for desloppify.
@@ -73,8 +79,7 @@ function getGrade(score: number): string {
   return "F";
 }
 
-// Max penalty per category = 25 points (diminishing returns).
-// A single category can't nuke more than 25% of the score.
+// A single category can't nuke more than 20% of the score.
 const MAX_CATEGORY_PENALTY = 20;
 
 function calculateScore(issues: Issue[]): {
@@ -97,7 +102,6 @@ function calculateScore(issues: Issue[]): {
     categoryScores[issue.category].penalty += penalty;
   }
 
-  // Apply diminishing returns: cap each category's contribution
   let totalPenalty = 0;
   for (const data of Object.values(categoryScores)) {
     totalPenalty += Math.min(data.penalty, MAX_CATEGORY_PENALTY);
@@ -114,16 +118,37 @@ export default defineCommand({
   args: {
     path: { type: "positional", description: "Path to scan", default: "." },
     json: { type: "boolean", description: "JSON output" },
+    architecture: { type: "string", description: "Architecture profile (e.g. modular-monolith)" },
   },
   async run({ args }) {
     const targetPath = resolve(args.path);
+    if (args.architecture && !isArchitectureProfile(args.architecture)) {
+      throw new Error(`Unknown architecture profile: ${args.architecture}`);
+    }
+
+    const architecture = resolveArchitectureProfileName(args.architecture);
     const tools = detectTools();
     const allIssues: Issue[] = [];
+    const isJson = args.json;
+    const t0 = performance.now();
 
+    if (!isJson) {
+      scanIntro(VERSION);
+      showTools(tools);
+      if (architecture) p.log.info(`Architecture: ${architecture}`);
+    }
+
+    const spin = isJson ? null : createSpinner();
+
+    spin?.start("Walking file tree...");
     const entries = await walkFiles(targetPath);
+
+    spin?.message(`Analyzing ${entries.length} files...`);
     allIssues.push(...runGrepPatternsFromEntries(entries));
     allIssues.push(...runGrepExtendedFromEntries(entries));
-    allIssues.push(...runFileMetricsFromEntries(entries));
+    allIssues.push(...runFileMetricsFromEntries(entries, { architecture }));
+    allIssues.push(...runArchitectureProfileFromEntries(entries, { architecture }));
+    spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
 
     const tasks: Promise<Issue[]>[] = [];
     if (tools.knip) tasks.push(runKnip(targetPath));
@@ -131,17 +156,27 @@ export default defineCommand({
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));
     if (tools.tsc) tasks.push(runTsc(targetPath));
 
-    const results = await Promise.all(tasks);
-    for (const issues of results) {
-      allIssues.push(...issues);
+    if (tasks.length > 0) {
+      const extSpin = isJson ? null : createSpinner();
+      extSpin?.start("Running external analyzers...");
+      const results = await Promise.all(tasks);
+      let extCount = 0;
+      for (const issues of results) {
+        extCount += issues.length;
+        allIssues.push(...issues);
+      }
+      extSpin?.stop(`External tools done — ${extCount} additional issues`);
     }
 
     const { score, grade, penalty, categoryScores } = calculateScore(allIssues);
 
-    if (args.json) {
+    const architectureSummary = buildArchitectureSummary(architecture, allIssues);
+
+    if (isJson) {
       console.log(JSON.stringify({
         score,
         grade,
+        architecture: architectureSummary,
         totalIssues: allIssues.length,
         totalPenalty: Math.round(penalty * 10) / 10,
         categories: categoryScores,
@@ -149,48 +184,48 @@ export default defineCommand({
       return;
     }
 
-    // Pretty output
-    const gradeColors: Record<string, string> = {
-      "A+": "\x1b[32m", A: "\x1b[32m", B: "\x1b[33m",
-      C: "\x1b[33m", D: "\x1b[31m", F: "\x1b[31m",
-    };
-    const reset = "\x1b[0m";
-    const color = gradeColors[grade] ?? "";
+    showScore(score, grade, allIssues.length, penalty);
 
-    console.log("");
-    console.log(`  ${color}╔════════════════════════════╗${reset}`);
-    console.log(`  ${color}║  DESLOPPIFY SCORE: ${String(score).padStart(3)}     ║${reset}`);
-    console.log(`  ${color}║  GRADE: ${grade.padEnd(18)}  ║${reset}`);
-    console.log(`  ${color}╚════════════════════════════╝${reset}`);
-    console.log("");
-    console.log(`  Total issues: ${allIssues.length}`);
-    console.log(`  Total penalty: ${Math.round(penalty * 10) / 10} pts`);
-    console.log("");
-
-    // Category breakdown sorted by penalty (worst first)
     const sorted = Object.entries(categoryScores)
       .sort((a, b) => b[1].penalty - a[1].penalty);
 
     if (sorted.length > 0) {
-      console.log("  Category Breakdown:");
-      console.log("  ─────────────────────────────────────────────────────");
-      const maxCat = Math.max(...sorted.map(([k]) => k.length));
-      for (const [cat, data] of sorted) {
+      const maxLabel = Math.max(...sorted.map(([cat]) => humanCategory(cat).length));
+      const lines = sorted.map(([cat, data]) => {
         const cappedPenalty = Math.min(data.penalty, MAX_CATEGORY_PENALTY);
-        const gauge = "█".repeat(Math.min(30, Math.ceil(cappedPenalty)));
-        const penaltyStr = Math.round(data.penalty * 10) / 10;
-        const cappedStr = data.penalty > MAX_CATEGORY_PENALTY ? ` (capped ${MAX_CATEGORY_PENALTY})` : "";
-        console.log(
-          `  ${cat.padEnd(maxCat)}  ${String(data.count).padStart(4)} issues  ${String(penaltyStr).padStart(6)} pts  ${data.weight}x  ${gauge}${cappedStr}`
-        );
-      }
-      console.log("");
+        const gauge = "█".repeat(Math.max(1, Math.min(15, Math.ceil(cappedPenalty))));
+        const rawPenalty = Math.round(data.penalty * 10) / 10;
+        const capped = data.penalty > MAX_CATEGORY_PENALTY
+          ? ` ${t.dim}(capped ${MAX_CATEGORY_PENALTY})${t.reset}`
+          : "";
+
+        return [
+          `${t.cream}${humanCategory(cat).padEnd(maxLabel)}${t.reset}`,
+          `${String(data.count).padStart(4)} issues`,
+          `${String(rawPenalty).padStart(5)} pts`,
+          `${t.dim}${data.weight}x${t.reset}`,
+          `${t.orange}${gauge}${t.reset}${capped}`,
+        ].join("  ");
+      });
+
+      p.note(lines.join("\n"), `${t.orange}Weighted categories${t.reset}`);
     }
 
-    // Grade scale
-    console.log("  Grade scale: A+(95-100) A(85-94) B(70-84) C(50-69) D(30-49) F(0-29)");
-    console.log("");
+    if (architectureSummary) {
+      const topViolations = Object.entries(architectureSummary.violations)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([id, count]) => `${id}: ${count}`)
+        .join("\n");
+      p.note([
+        `Profile: ${architectureSummary.profile}`,
+        `Fit: ${architectureSummary.fitScore}/100`,
+        topViolations ? `Top violations:\n${topViolations}` : "Top violations: none",
+      ].join("\n\n"), "Architecture");
+    }
 
+    p.log.info("Grade scale: A+(95-100) A(85-94) B(70-84) C(50-69) D(30-49) F(0-29)");
+    scanOutro(performance.now() - t0, entries.length);
     process.exit(score < 50 ? 1 : 0);
   },
 });

@@ -48,6 +48,12 @@ export interface CategorySummary {
 export interface ScanReport {
   version: string;
   path: string;
+  architecture?: {
+    profile: string;
+    fitScore: number;
+    violations: Record<string, number>;
+    exemptionsApplied: string[];
+  };
   tools: ToolStatus;
   score: number;
   summary: { critical: number; high: number; medium: number; low: number };

@@ -1,4 +1,5 @@
 import { defineCommand } from "citty";
+import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 
 const RULES = [
   // dead-code
@@ -35,6 +36,9 @@ const RULES = [
   { id: "ENTRY_EXIT_LOG", category: "ai-slop", tier: 1, tool: "grep", desc: "Function entry/exit debugging log" },
   { id: "PRINT_STATEMENT", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "Python print() in production code" },
   { id: "PASS_STUB", category: "ai-slop", tier: 0, tool: "ast-grep", desc: "Python pass-only function body (stub)" },
+  { id: "DEBUG_BREAKPOINT", category: "ai-slop", tier: 1, tool: "grep", desc: "debugger/breakpoint/pdb.set_trace/dbg! left in code" },
+  { id: "UNNECESSARY_USECALLBACK", category: "ai-slop", tier: 1, tool: "grep", desc: "useCallback with empty deps and no captures" },
+  { id: "REDUNDANT_BOOLEAN_RETURN", category: "ai-slop", tier: 1, tool: "grep", desc: "if/else returns boolean literals — return condition directly" },
 
   // circular-deps
   { id: "CIRCULAR_IMPORT", category: "circular-deps", tier: 3, tool: "madge", desc: "Import cycle between modules" },
@@ -114,12 +118,14 @@ const RULES = [
   { id: "STAR_IMPORT", category: "inconsistency", tier: 0, tool: "ast-grep", desc: "Python star import — import specific names" },
 
   // file-level metrics (modularity, architecture)
-  { id: "GOD_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 1200 LOC — split into modules" },
-  { id: "LARGE_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 800 LOC — approaching god file" },
-  { id: "LONG_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds 500 LOC — consider splitting" },
+  { id: "GOD_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds critical LOC threshold — split into modules" },
+  { id: "LARGE_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds hard LOC threshold — approaching god file" },
+  { id: "LONG_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "File exceeds soft LOC threshold — consider splitting" },
   { id: "BARREL_FILE", category: "complexity", tier: 0, tool: "file-metrics", desc: "Barrel re-export file — use direct imports" },
   { id: "STAR_REEXPORT", category: "inconsistency", tier: 0, tool: "file-metrics", desc: "export * from — pollutes namespace" },
   { id: "MIXED_CONCERNS", category: "complexity", tier: 0, tool: "file-metrics", desc: "Route + DB queries in same file — split layers" },
+  { id: "LAYER_BOUNDARY_VIOLATION", category: "complexity", tier: 0, tool: "architecture-profile", desc: "Route imports repository/model/db internals" },
+  { id: "PRIVATE_MODULE_IMPORT", category: "inconsistency", tier: 0, tool: "architecture-profile", desc: "Cross-module import bypasses target public API" },
   { id: "IMPORT_HEAVY", category: "complexity", tier: 0, tool: "file-metrics", desc: "15+ imports — too many concerns in one file" },
   { id: "MONOLITH_ROUTE", category: "complexity", tier: 0, tool: "file-metrics", desc: "4+ HTTP methods in one file — split to VSA" },
   { id: "GENERIC_BUCKET_FILE", category: "naming-semantics", tier: 0, tool: "file-metrics", desc: "utils/helpers/misc file — split by domain" },
@@ -178,12 +184,22 @@ export default defineCommand({
   meta: { name: "rules", description: "List all detection rules" },
   args: {
     category: { type: "string", description: "Filter by category" },
+    architecture: { type: "string", description: "Architecture profile (e.g. modular-monolith)" },
     json: { type: "boolean", description: "JSON output" },
   },
   run({ args }) {
-    const filtered = args.category
-      ? RULES.filter((r) => r.category === args.category)
-      : RULES;
+    if (args.architecture && !isArchitectureProfile(args.architecture)) {
+      throw new Error(`Unknown architecture profile: ${args.architecture}`);
+    }
+
+    const architecture = resolveArchitectureProfileName(args.architecture);
+    const profile = getArchitectureProfile(architecture);
+
+    const filtered = RULES.filter((r) => {
+      if (args.category && r.category !== args.category) return false;
+      if (profile && !profile.ruleIds.includes(r.id)) return false;
+      return true;
+    });
 
     if (args.json) {
       console.log(JSON.stringify(filtered, null, 2));
@@ -192,6 +208,11 @@ export default defineCommand({
 
     const maxId = Math.max(...filtered.map((r) => r.id.length));
     const maxCat = Math.max(...filtered.map((r) => r.category.length));
+
+    if (architecture) {
+      console.log(`Architecture profile: ${architecture}`);
+      console.log("");
+    }
 
     console.log(`${"RULE".padEnd(maxId)}  ${"CATEGORY".padEnd(maxCat)}  TIER  TOOL      DESCRIPTION`);
     console.log("─".repeat(maxId + maxCat + 50));

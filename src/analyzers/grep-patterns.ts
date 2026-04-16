@@ -166,7 +166,7 @@ const RULES: GrepRule[] = [
   // defensive: log and rethrow
   {
     id: "LOG_AND_RETHROW",
-    pattern: /console\.(error|log|warn)\s*\(.*\);\s*\n\s*throw\b/,
+    pattern: /console\.(error|log|warn)\s*\(/,
     category: "defensive-programming",
     severity: "HIGH",
     tier: 2,
@@ -251,7 +251,7 @@ const RULES: GrepRule[] = [
   // ai-slop: commented-out code blocks (3+ lines detected via preceding comment)
   {
     id: "COMMENTED_CODE_BLOCK",
-    pattern: /^\s*(\/\/|#)\s*(const|let|var|function|class|import|export|if|for|while|return|async)\b/,
+    pattern: /^\s*(\/\/|#)\s*(?:(?:const|let|var|function|class|import|export|if|for|while|return)\b|async(?:\s+function\b|\s*\())/,
     category: "ai-slop",
     severity: "LOW",
     tier: 1,
@@ -306,11 +306,21 @@ const RULES: GrepRule[] = [
   // ai-slop: unnecessary intermediate variable before return
   {
     id: "UNNECESSARY_INTERMEDIATE",
-    pattern: /^\s*(const|let)\s+\w+\s*=\s*.+;\s*\n\s*return\s+\w+;\s*$/,
+    pattern: /^\s*(const|let)\s+(\w+)\s*=\s*.+;\s*$/,
     category: "ai-slop",
     severity: "LOW",
     tier: 0,
     message: "Unnecessary intermediate variable — return the expression directly",
+  },
+  {
+    id: "DEBUG_BREAKPOINT",
+    pattern: /\bdebugger\b|\bbreakpoint\b|\bpdb\.set_trace\b|dbg!/, 
+    category: "ai-slop",
+    severity: "HIGH",
+    tier: 1,
+    message: "Debug breakpoint left in code — remove before shipping",
+    fix: "Remove the breakpoint/debug statement",
+    skipTest: true,
   },
   // ai-slop: useMemo with empty deps on a constant
   {
@@ -321,6 +331,24 @@ const RULES: GrepRule[] = [
     tier: 1,
     message: "useMemo with empty deps on a constant — just use the value directly",
     fix: "Remove the useMemo wrapper",
+  },
+  {
+    id: "UNNECESSARY_USECALLBACK",
+    pattern: /useCallback\(\s*\(\)\s*=>.*\[\s*\]\s*\)/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 1,
+    message: "useCallback with empty deps and no captured values — use the function directly",
+    fix: "Remove the useCallback wrapper",
+  },
+  {
+    id: "REDUNDANT_BOOLEAN_RETURN",
+    pattern: /^\s*if\s*\(.+\)/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 1,
+    message: "Redundant boolean-return scaffolding — return the condition directly",
+    fix: "Replace the if/else boolean return with a direct return",
   },
   // ai-slop: ghost state wired to disabled controls
   {
@@ -380,14 +408,61 @@ const RULES: GrepRule[] = [
 
 const TEST_FILE = /\.(test|spec|mock|fixture)\.(ts|tsx|js|jsx|py)$|__tests__|tests\/|test_/;
 
+function nextMeaningfulLine(lines: string[], start: number): { index: number; text: string } | null {
+  for (let i = start; i < lines.length; i++) {
+    const text = lines[i].trim();
+    if (!text) continue;
+    return { index: i, text };
+  }
+  return null;
+}
+
+function isRedundantBooleanReturn(lines: string[], index: number): boolean {
+  const line = lines[index].trim();
+  const inlineMatch = line.match(/^if\s*\(.+\)\s*return\s+(true|false);\s*else\s*return\s+(true|false);?$/);
+  if (inlineMatch) return inlineMatch[1] !== inlineMatch[2];
+
+  const first = nextMeaningfulLine(lines, index + 1);
+  if (!first) return false;
+
+  const ifTrue = first.text === "return true;";
+  const ifFalse = first.text === "return false;";
+  if (!ifTrue && !ifFalse) return false;
+
+  const afterIf = nextMeaningfulLine(lines, first.index + 1);
+  if (!afterIf) return false;
+
+  if (afterIf.text === "}") {
+    const fallback = nextMeaningfulLine(lines, afterIf.index + 1);
+    return Boolean(fallback && ((ifTrue && fallback.text === "return false;") || (ifFalse && fallback.text === "return true;")));
+  }
+
+  if (afterIf.text === "} else {" || afterIf.text === "else {") {
+    const fallback = nextMeaningfulLine(lines, afterIf.index + 1);
+    return Boolean(fallback && ((ifTrue && fallback.text === "return false;") || (ifFalse && fallback.text === "return true;")));
+  }
+
+  return false;
+}
+
 function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const nextLine = lines[i + 1] ?? "";
     for (const rule of RULES) {
       if (rule.skipTest && isTestFile) continue;
       if (!rule.pattern.test(line)) continue;
       if (isLineIgnored(line, rule.id)) continue;
+      if (rule.id === "DEBUG_BREAKPOINT" && /(pattern:\s*\/|desc:\s*"|message:\s*"|fix:\s*"|DEBUG_BREAKPOINT:)/.test(line)) continue;
+      if (rule.id === "UNNECESSARY_USECALLBACK" && /pattern:\s*\//.test(line)) continue;
+      if (rule.id === "NESTED_TERNARY" && /\/.*\?[:?]/.test(line)) continue;
+      if (rule.id === "LOG_AND_RETHROW" && !/^\s*throw\b/.test(nextLine.trim())) continue;
+      if (rule.id === "UNNECESSARY_INTERMEDIATE") {
+        const match = line.match(/^\s*(const|let)\s+(\w+)\s*=\s*.+;\s*$/);
+        if (!match || nextLine.trim() !== `return ${match[2]};`) continue;
+      }
+      if (rule.id === "REDUNDANT_BOOLEAN_RETURN" && !isRedundantBooleanReturn(lines, i)) continue;
       found.push({
         id: rule.id,
         category: rule.category,

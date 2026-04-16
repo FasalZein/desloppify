@@ -108,7 +108,7 @@ const RULES: GrepRule[] = [
   },
   {
     id: "CALLBACK_PROMISE_MIX",
-    pattern: /\.then\(\s*(async|.*await)\s/,
+    pattern: /(?:^|[^/'"`])\.then\(\s*(?:async\b|(?:\([^)]*\)|\w+)\s*=>.*await\b)/,
     category: "async-correctness",
     severity: "MEDIUM",
     tier: 0,

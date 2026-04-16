@@ -4,7 +4,7 @@
   "description": "Your AI wrote spaghetti. This eats it. The definitive AI slop detector for any codebase.",
   "type": "module",
   "bin": {
-    "desloppify": "./bin/desloppify.js"
+    "desloppify": "bin/desloppify.js"
   },
   "files": [
     "bin/",
@@ -20,6 +20,8 @@
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
     "check-tools": "bun src/cli.ts check-tools",
+    "test": "bun test",
+    "setup-hooks": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit .githooks/pre-push",
     "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts"
   },
   "keywords": [
@@ -34,7 +36,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/FasalZein/desloppify"
+    "url": "git+https://github.com/FasalZein/desloppify.git"
   },
   "license": "MIT",
   "engines": {

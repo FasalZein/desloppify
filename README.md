@@ -77,15 +77,33 @@ The CLI handles detection deterministically. The agent handles judgment — is t
 ## Commands
 
 ```bash
-desloppify scan [path]              # detect issues (pretty terminal output)
-desloppify scan [path] --json       # machine-readable for agents
-desloppify scan [path] --category   # single category only
-desloppify score [path]             # weighted quality grade (A+ to F)
-desloppify fix [path] --safe        # auto-fix safe mechanical issues
-desloppify rules                    # list all detection rules
-desloppify check-tools              # show available analyzers
-desloppify worktrees [path]         # print worktree setup commands
+desloppify scan [path]                           # detect issues (pretty terminal output)
+desloppify scan [path] --json                    # machine-readable for agents
+desloppify scan [path] --category complexity     # single category only
+desloppify scan [path] --architecture modular-monolith
+desloppify scan [path] --staged                  # staged git changes only
+desloppify scan [path] --changed                 # current branch diff only
+desloppify score [path]                          # weighted quality grade (A+ to F)
+desloppify score [path] --architecture modular-monolith
+desloppify rules                                 # list all detection rules
+desloppify rules --architecture modular-monolith # active architecture bundle only
+desloppify fix [path] --safe                     # auto-fix safe mechanical issues
+desloppify check-tools                           # show available analyzers
+desloppify worktrees [path]                      # print worktree setup commands
 ```
+
+## Git hooks for changed files only
+
+```bash
+bun run setup-hooks
+```
+
+This installs repo-local hooks via `.githooks/`:
+
+- `pre-commit` → scans `--staged`
+- `pre-push` → scans `--changed`
+
+Both hooks scan only the diff on your branch, not the whole repo, and block only on `HIGH`/`CRITICAL` findings.
 
 ## Scoring
 
