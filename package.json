@@ -12,7 +12,8 @@
     "score": "bun src/cli.ts score",
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
-    "check-tools": "bun src/cli.ts check-tools"
+    "check-tools": "bun src/cli.ts check-tools",
+    "build": "bun build --compile --outfile desloppify src/cli.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

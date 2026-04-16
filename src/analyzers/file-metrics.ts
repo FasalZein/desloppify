@@ -1,34 +1,18 @@
 import type { Issue } from "../types";
-import { Glob } from "bun";
-import { loadIgnorePatterns, isFileIgnored } from "../ignore";
-
-const SKIP_PATH = /node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//;
+import type { FileEntry } from "./file-walker";
 
 // Thresholds from research: soft warn at 500 LOC, hard at 800
 const SOFT_LIMIT = 500;
 const HARD_LIMIT = 800;
 const GOD_FILE_LIMIT = 1200;
 
-// Function length (already in grep, but file-level gives better context)
-const FUNC_SOFT_LIMIT = 50;
-
-export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
+export function runFileMetricsFromEntries(entries: FileEntry[]): Issue[] {
   const issues: Issue[] = [];
-  const ignorePatterns = await loadIgnorePatterns(targetPath);
-  const glob = new Glob("**/*.{ts,tsx,js,jsx,py,rs,go,java,kt,rb,swift}");
 
-  for await (const filePath of glob.scan({
-    cwd: targetPath,
-    absolute: true,
-    dot: false,
-  })) {
-    if (SKIP_PATH.test(filePath)) continue;
-    if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
-
-    try {
-      const content = await Bun.file(filePath).text();
-      const lines = content.split("\n");
-      const loc = lines.filter((l) => l.trim() && !l.trim().startsWith("//") && !l.trim().startsWith("#")).length;
+  for (const entry of entries) {
+    const filePath = entry.path;
+    const lines = entry.lines;
+    const loc = lines.filter((l) => l.trim() && !l.trim().startsWith("//") && !l.trim().startsWith("#")).length;
 
       // Skip generated/auto-generated files for LOC checks
       const isGenFile = /\.gen\.|\.generated\.|payload-types|\.d\.ts$/.test(filePath);
@@ -259,9 +243,6 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
         }
       }
 
-    } catch {
-      // Unreadable file, skip
-    }
   }
 
   return issues;

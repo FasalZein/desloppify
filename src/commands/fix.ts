@@ -2,7 +2,8 @@ import { defineCommand } from "citty";
 import { resolve } from "path";
 import type { Issue, Tier } from "../types";
 import { detectTools } from "../tools";
-import { runGrepPatterns } from "../analyzers/grep-patterns";
+import { walkFiles } from "../analyzers/file-walker";
+import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runKnip } from "../analyzers/knip";
 import { runMadge } from "../analyzers/madge";
@@ -42,7 +43,9 @@ export default defineCommand({
     console.log("");
 
     const allIssues: Issue[] = [];
-    const tasks: Promise<Issue[]>[] = [runGrepPatterns(targetPath)];
+    const entries = await walkFiles(targetPath);
+    allIssues.push(...runGrepPatternsFromEntries(entries));
+    const tasks: Promise<Issue[]>[] = [];
 
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));
     if (tools.knip && maxTier >= 3) tasks.push(runKnip(targetPath));

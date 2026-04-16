@@ -6,9 +6,10 @@ import { runKnip } from "../analyzers/knip";
 import { runMadge } from "../analyzers/madge";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
-import { runGrepPatterns } from "../analyzers/grep-patterns";
-import { runFileMetrics } from "../analyzers/file-metrics";
-import { runGrepExtended } from "../analyzers/grep-extended";
+import { walkFiles } from "../analyzers/file-walker";
+import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
+import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
+import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
 
 /**
  * Scoring system for desloppify.
@@ -119,10 +120,12 @@ export default defineCommand({
     const tools = detectTools();
     const allIssues: Issue[] = [];
 
+    const entries = await walkFiles(targetPath);
+    allIssues.push(...runGrepPatternsFromEntries(entries));
+    allIssues.push(...runGrepExtendedFromEntries(entries));
+    allIssues.push(...runFileMetricsFromEntries(entries));
+
     const tasks: Promise<Issue[]>[] = [];
-    tasks.push(runGrepPatterns(targetPath));
-    tasks.push(runFileMetrics(targetPath));
-    tasks.push(runGrepExtended(targetPath));
     if (tools.knip) tasks.push(runKnip(targetPath));
     if (tools.madge) tasks.push(runMadge(targetPath));
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));

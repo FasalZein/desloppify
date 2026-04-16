@@ -1,6 +1,6 @@
 import type { Issue, Category, Severity, Tier } from "../types";
-import { Glob } from "bun";
-import { loadIgnorePatterns, isFileIgnored, isLineIgnored } from "../ignore";
+import { isLineIgnored } from "../ignore";
+import type { FileEntry } from "./file-walker";
 
 /**
  * Extended grep rules for new categories:
@@ -249,7 +249,7 @@ const RULES: GrepRule[] = [
   },
   {
     id: "BUILTIN_SHADOW",
-    pattern: /\b(id|list|dict|type|input|file|filter|map|format|range|set|str|int|float|bool|tuple|object|hash|dir|len|min|max|sum|abs|round|open|print|next|iter|super|vars|zip|any|all)\s*[=:]\s/,
+    pattern: /\b(list|dict|set|map|filter|range|zip|all|any|sum|min|max|len|open|print|next|iter|super)\s*=\s/,
     category: "naming-semantics",
     severity: "MEDIUM",
     tier: 0,
@@ -320,8 +320,6 @@ const RULES: GrepRule[] = [
 // Remove placeholder/disabled rules
 const ACTIVE_RULES = RULES.filter((r) => r.pattern.source !== "^$");
 
-const SKIP_PATH = /node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//;
-
 function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -345,33 +343,15 @@ function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Is
   return found;
 }
 
-export async function runGrepExtended(targetPath: string): Promise<Issue[]> {
+export function runGrepExtendedFromEntries(entries: FileEntry[]): Issue[] {
   const issues: Issue[] = [];
-  const ignorePatterns = await loadIgnorePatterns(targetPath);
-  const glob = new Glob("**/*.{ts,tsx,js,jsx,py,rs,go,java,kt,rb,swift,c,cpp,cs,html}");
-
-  for await (const filePath of glob.scan({
-    cwd: targetPath,
-    absolute: true,
-    dot: false,
-  })) {
-    if (SKIP_PATH.test(filePath)) continue;
-    if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
-
-    // Filter rules to only those applicable to this file type
+  for (const entry of entries) {
     const applicableRules = ACTIVE_RULES.filter(
-      (r) => !r.fileFilter || r.fileFilter.test(filePath)
+      (r) => !r.fileFilter || r.fileFilter.test(entry.path)
     );
     if (applicableRules.length === 0) continue;
-
-    try {
-      const content = await Bun.file(filePath).text();
-      const found = scanFileLines(filePath, content.split("\n"), applicableRules);
-      issues.push(...found);
-    } catch {
-      // Unreadable file, skip
-    }
+    const found = scanFileLines(entry.path, entry.lines, applicableRules);
+    issues.push(...found);
   }
-
   return issues;
 }

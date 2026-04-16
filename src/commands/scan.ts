@@ -6,9 +6,10 @@ import { runKnip } from "../analyzers/knip";
 import { runMadge } from "../analyzers/madge";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runTsc } from "../analyzers/tsc";
-import { runGrepPatterns } from "../analyzers/grep-patterns";
-import { runFileMetrics } from "../analyzers/file-metrics";
-import { runGrepExtended } from "../analyzers/grep-extended";
+import { walkFiles } from "../analyzers/file-walker";
+import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
+import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
+import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
 
 export default defineCommand({
   meta: { name: "scan", description: "Analyze codebase for issues" },
@@ -23,13 +24,16 @@ export default defineCommand({
     const tools = detectTools();
     const allIssues: Issue[] = [];
 
-    // Run all available analyzers in parallel
-    const tasks: Promise<Issue[]>[] = [];
+    // Single-pass file walk shared by grep-patterns, grep-extended, file-metrics
+    const entries = await walkFiles(targetPath);
 
-    // grep patterns and file metrics always run (no external dep)
-    tasks.push(runGrepPatterns(targetPath));
-    tasks.push(runFileMetrics(targetPath));
-    tasks.push(runGrepExtended(targetPath));
+    // Run synchronous analyzers on shared file entries (no duplicate I/O)
+    allIssues.push(...runGrepPatternsFromEntries(entries));
+    allIssues.push(...runGrepExtendedFromEntries(entries));
+    allIssues.push(...runFileMetricsFromEntries(entries));
+
+    // Run external tool analyzers in parallel
+    const tasks: Promise<Issue[]>[] = [];
 
     if (tools.knip && (!args.category || args.category === "dead-code")) {
       tasks.push(runKnip(targetPath));

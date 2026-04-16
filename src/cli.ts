@@ -4,8 +4,8 @@ import { defineCommand, runMain } from "citty";
 const main = defineCommand({
   meta: {
     name: "desloppify",
-    version: "1.2.0",
-    description: "Agent-agnostic code cleanup CLI. Detects 11 categories of code rot.",
+    version: "2.0.0",
+    description: "Agent-agnostic code cleanup CLI. Detects 116+ rules across 16 categories of AI code rot.",
   },
   subCommands: {
     scan: () => import("./commands/scan").then((m) => m.default),

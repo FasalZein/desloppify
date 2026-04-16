@@ -1,6 +1,6 @@
 import type { Issue, Category, Severity, Tier } from "../types";
-import { Glob } from "bun";
-import { loadIgnorePatterns, isFileIgnored, isLineIgnored } from "../ignore";
+import { isLineIgnored } from "../ignore";
+import type { FileEntry } from "./file-walker";
 
 interface GrepRule {
   id: string;
@@ -378,7 +378,6 @@ const RULES: GrepRule[] = [
   },
 ];
 
-const SKIP_PATH = /node_modules|\.git\/|\/dist\/|\/build\/|\.min\.|\/coverage\/|\/out\/|\/env\/|\/vendor\/|\/\.next\/|\/public\/.*assets\//;
 const TEST_FILE = /\.(test|spec|mock|fixture)\.(ts|tsx|js|jsx|py)$|__tests__|tests\/|test_/;
 
 function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): Issue[] {
@@ -405,27 +404,11 @@ function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): 
   return found;
 }
 
-export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {
+export function runGrepPatternsFromEntries(entries: FileEntry[]): Issue[] {
   const issues: Issue[] = [];
-  const ignorePatterns = await loadIgnorePatterns(targetPath);
-  const glob = new Glob("**/*.{ts,tsx,js,jsx,py,rs,go,java,kt,rb,swift,c,cpp,cs}");
-
-  for await (const filePath of glob.scan({
-    cwd: targetPath,
-    absolute: true,
-    dot: false,
-  })) {
-    if (SKIP_PATH.test(filePath)) continue;
-    if (isFileIgnored(filePath, targetPath, ignorePatterns)) continue;
-
-    try {
-      const content = await Bun.file(filePath).text();
-      const found = scanFileLines(filePath, content.split("\n"), TEST_FILE.test(filePath));
-      issues.push(...found);
-    } catch {
-      // Unreadable file, skip
-    }
+  for (const entry of entries) {
+    const found = scanFileLines(entry.path, entry.lines, TEST_FILE.test(entry.path));
+    issues.push(...found);
   }
-
   return issues;
 }
