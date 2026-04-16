@@ -10,7 +10,6 @@
     "bin/",
     "src/",
     "skills/",
-    "scripts/",
     "README.md",
     "LICENSE"
   ],
@@ -21,8 +20,7 @@
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
     "check-tools": "bun src/cli.ts check-tools",
-    "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts",
-    "postinstall": "node scripts/postinstall.js"
+    "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts"
   },
   "keywords": [
     "ai-slop",
