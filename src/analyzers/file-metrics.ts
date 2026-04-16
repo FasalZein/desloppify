@@ -30,8 +30,11 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
       const lines = content.split("\n");
       const loc = lines.filter((l) => l.trim() && !l.trim().startsWith("//") && !l.trim().startsWith("#")).length;
 
+      // Skip generated/auto-generated files for LOC checks
+      const isGenFile = /\.gen\.|\.generated\.|payload-types|\.d\.ts$/.test(filePath);
+
       // GOD_FILE: file exceeds hard limit
-      if (loc >= GOD_FILE_LIMIT) {
+      if (loc >= GOD_FILE_LIMIT && !isGenFile) {
         issues.push({
           id: "GOD_FILE",
           category: "complexity",
@@ -42,7 +45,7 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
           message: `File has ${loc} lines of code — split into domain modules (threshold: ${GOD_FILE_LIMIT})`,
           tool: "file-metrics",
         });
-      } else if (loc >= HARD_LIMIT) {
+      } else if (loc >= HARD_LIMIT && !isGenFile) {
         issues.push({
           id: "LARGE_FILE",
           category: "complexity",
@@ -53,7 +56,7 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
           message: `File has ${loc} lines of code — approaching god file territory (threshold: ${HARD_LIMIT})`,
           tool: "file-metrics",
         });
-      } else if (loc >= SOFT_LIMIT) {
+      } else if (loc >= SOFT_LIMIT && !isGenFile) {
         issues.push({
           id: "LONG_FILE",
           category: "complexity",
@@ -101,19 +104,23 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
         }
       }
 
-      // MIXED_CONCERNS: file has both route/controller AND business logic indicators
+      // MIXED_CONCERNS: file has both route/controller AND direct DB access
+      const isTestFile = /\.(test|spec|int\.test)\.(ts|tsx|js|jsx|py)$|__tests__|tests\//.test(filePath);
+      const isScript = /\/scripts\/|\/seeds?\/|\.seed\.|\.migration\./.test(filePath);
       const hasRoute = lines.some((l) =>
-        /\.(get|post|put|patch|delete)\s*\(/.test(l) ||
-        /router\.(get|post|put|patch|delete)/.test(l) ||
-        /app\.(get|post|put|patch|delete)/.test(l) ||
-        /@(Get|Post|Put|Patch|Delete)\(/.test(l)
+        /router\.(get|post|put|patch|delete)\s*\(/.test(l) ||
+        /app\.(get|post|put|patch|delete)\s*\(/.test(l) ||
+        /@(Get|Post|Put|Patch|Delete)\(/.test(l) ||
+        /export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/.test(l) ||
+        /procedure\s*\(\s*\)/.test(l)
       );
       const hasDbQuery = lines.some((l) =>
-        /\.(find|findOne|findMany|create|update|delete|insert|select|where)\s*\(/.test(l) ||
-        /prisma\./.test(l) || /\.query\s*\(/.test(l) ||
-        /db\./.test(l) || /session\.(execute|query)/.test(l)
+        /prisma\.\w+\.(find|create|update|delete|upsert|count|aggregate)/.test(l) ||
+        /\.query\s*\(/.test(l) ||
+        /session\.(execute|query|scalar)/.test(l) ||
+        /\bdb\.\w+\.(find|insert|update|delete|select)/.test(l)
       );
-      if (hasRoute && hasDbQuery && loc > 100) {
+      if (hasRoute && hasDbQuery && loc > 100 && !isTestFile && !isScript) {
         issues.push({
           id: "MIXED_CONCERNS",
           category: "complexity",
@@ -132,7 +139,8 @@ export async function runFileMetrics(targetPath: string): Promise<Issue[]> {
         const match = line.match(/(?:import|from)\s+["']([^"']+)["']/);
         if (match) importPaths.add(match[1]);
       }
-      if (importPaths.size >= 15) {
+      const isGenerated = /\.gen\.|\.generated\.|payload\.config|payload-types/.test(filePath);
+      if (importPaths.size >= 15 && !isGenerated) {
         issues.push({
           id: "IMPORT_HEAVY",
           category: "complexity",
