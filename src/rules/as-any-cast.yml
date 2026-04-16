@@ -1,0 +1,9 @@
+id: AS_ANY_CAST
+language: typescript
+rule:
+  kind: as_expression
+  has:
+    kind: predefined_type
+    regex: "^any$"
+message: "'as any' cast hides a real type mismatch"
+severity: error

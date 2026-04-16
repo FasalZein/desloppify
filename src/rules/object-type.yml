@@ -1,0 +1,7 @@
+id: OBJECT_TYPE
+language: typescript
+rule:
+  kind: predefined_type
+  regex: "^object$"
+message: "'object' type is too broad — use a specific interface"
+severity: warning

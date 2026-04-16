@@ -1,0 +1,7 @@
+id: FUNCTION_TYPE
+language: typescript
+rule:
+  kind: type_identifier
+  regex: "^Function$"
+message: "'Function' type is untyped — use a specific signature"
+severity: warning

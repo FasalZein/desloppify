@@ -1,0 +1,7 @@
+id: ANY_TYPE
+language: typescript
+rule:
+  kind: predefined_type
+  regex: "^any$"
+message: "Explicit 'any' type bypasses type safety"
+severity: warning

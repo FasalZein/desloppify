@@ -1,0 +1,11 @@
+id: EMPTY_CATCH
+language: typescript
+rule:
+  kind: catch_clause
+  has:
+    kind: statement_block
+    not:
+      has:
+        kind: expression_statement
+message: "Empty catch block swallows errors silently"
+severity: warning

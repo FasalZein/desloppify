@@ -1,0 +1,9 @@
+id: CONSOLE_LOG
+language: typescript
+rule:
+  kind: call_expression
+  has:
+    kind: member_expression
+    pattern: console.log
+message: "console.log left in production code"
+severity: warning
