@@ -162,6 +162,17 @@ desloppify scan [path]          # full JSON report
 
 Save the full JSON output. You will slice it by category and pass relevant sections to each sub-agent in Phase 4. Do not start fixing before the full scan is complete.
 
+**Language-aware supplement:** The CLI's built-in analyzers target JS/TS primarily. If the project's primary language is NOT JavaScript/TypeScript and the scan returns few or zero findings, supplement with the language's native tools:
+
+| Language | Supplement commands |
+|----------|-------------------|
+| Python | `ruff check .` or `flake8`, `mypy .`, `vulture .` |
+| Rust | `cargo clippy -- -W clippy::all`, `cargo udeps` |
+| Go | `staticcheck ./...`, `deadcode .` |
+| Java/Kotlin | `./gradlew lint` or equivalent |
+
+Add any findings from these tools to the scan report before proceeding to triage. If no native tools are available, note the coverage gap in the report.
+
 ### Phase 2: File audit in wiki
 
 If `/wiki` is available, file the scan report as a research artifact:
@@ -242,18 +253,11 @@ STEPS:
 RETURN: list of files changed, issues fixed, issues skipped (with reason), final category score.
 ```
 
-#### Spawning sub-agents — harness syntax
+#### Spawning sub-agents
 
-The agent spawn mechanism varies by harness. The git worktree setup and desloppify CLI commands are identical regardless.
+Use your harness's native sub-agent mechanism to spawn one agent per active "Fix" category. Pass the filled prompt template above as the task. Run all sub-agents in parallel when your harness supports it.
 
-| Harness | Spawn syntax |
-|---------|-------------|
-| Claude Code | `Agent(prompt="<filled template>", model="sonnet")` |
-| Pi Agent | `subagent(name="fix-<category>", task="<filled template>", tools="read,bash,edit")` |
-| OpenCode | `Task(prompt="<filled template>")` |
-| No sub-agent support | Run categories sequentially in the main context; skip worktrees |
-
-Run all sub-agents in parallel when the harness supports it.
+If your harness does not support sub-agents, run each category sequentially in the main context and skip worktrees — apply fixes directly on the working branch instead.
 
 ### Phase 5: Merge + verify
 
