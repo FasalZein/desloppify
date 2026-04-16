@@ -1,0 +1,8 @@
+id: PASS_STUB
+language: python
+rule:
+  kind: pass_statement
+  inside:
+    kind: function_definition
+message: "Pass-only function body — likely a stub that was never implemented"
+severity: warning

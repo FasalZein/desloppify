@@ -1,0 +1,9 @@
+id: TODO_MACRO
+language: rust
+rule:
+  kind: macro_invocation
+  has:
+    kind: identifier
+    regex: "^(todo|unimplemented)$"
+message: "todo!()/unimplemented!() macro left in code — implement or remove"
+severity: warning

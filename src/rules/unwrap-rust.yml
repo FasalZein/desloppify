@@ -1,0 +1,11 @@
+id: UNWRAP_CALL
+language: rust
+rule:
+  kind: call_expression
+  has:
+    kind: field_expression
+    has:
+      kind: field_identifier
+      regex: "^unwrap$"
+message: ".unwrap() can panic — use ? operator or handle the error"
+severity: warning

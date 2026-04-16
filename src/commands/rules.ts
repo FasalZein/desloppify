@@ -22,7 +22,19 @@ const RULES = [
   { id: "APOLOGETIC_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Apologetic/suggestive comment" },
   { id: "OBVIOUS_JSX_LABEL", category: "ai-slop", tier: 1, tool: "grep", desc: "JSX comment restating the tag name" },
   { id: "DEMO_PLACEHOLDER", category: "ai-slop", tier: 1, tool: "grep", desc: "Demo/placeholder/mock data marker" },
-  { id: "CONSOLE_LOG", category: "ai-slop", tier: 1, tool: "grep", desc: "console.log in production code" },
+  { id: "CONSOLE_LOG", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "console.log in production code" },
+  { id: "HEDGING_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Uncertainty hedging — 'should work', 'hopefully'" },
+  { id: "SECTION_LABEL_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Section label in flat file — // Setup, // Cleanup" },
+  { id: "INSTRUCTIONAL_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Tutorial voice — 'Make sure to', 'Don't forget'" },
+  { id: "STATED_RETURN_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Comment narrates the return value" },
+  { id: "TRIPLE_NULL_GUARD", category: "ai-slop", tier: 2, tool: "grep", desc: "Triple null/undefined/empty guard" },
+  { id: "EXPLICIT_TRUE_COMPARE", category: "ai-slop", tier: 1, tool: "grep", desc: "Redundant === true/false comparison" },
+  { id: "RETURN_UNDEFINED", category: "ai-slop", tier: 1, tool: "grep", desc: "Explicit return undefined — just return;" },
+  { id: "PLACEHOLDER_VAR_NAME", category: "ai-slop", tier: 0, tool: "grep", desc: "Meaningless variable name — data2, temp1, foo" },
+  { id: "LINT_ESCAPE", category: "ai-slop", tier: 0, tool: "grep", desc: "Lint suppression instead of fixing the issue" },
+  { id: "ENTRY_EXIT_LOG", category: "ai-slop", tier: 1, tool: "grep", desc: "Function entry/exit debugging log" },
+  { id: "PRINT_STATEMENT", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "Python print() in production code" },
+  { id: "PASS_STUB", category: "ai-slop", tier: 0, tool: "ast-grep", desc: "Python pass-only function body (stub)" },
 
   // circular-deps
   { id: "CIRCULAR_IMPORT", category: "circular-deps", tier: 3, tool: "madge", desc: "Import cycle between modules" },
@@ -37,11 +49,17 @@ const RULES = [
   { id: "CATCH_LOG_CONTINUE", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "Catch logs and continues" },
   { id: "NOOP_CALLBACK", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "No-op callback fallback" },
   { id: "DEEP_OPTIONAL_CHAIN", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Optional chain 3+ deep" },
+  { id: "LOG_AND_RETHROW", category: "defensive-programming", tier: 2, tool: "grep", desc: "Catch-log-rethrow adds no value" },
+  { id: "BARE_EXCEPT", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "Python bare except catches everything" },
+  { id: "UNWRAP_CALL", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Rust .unwrap() can panic" },
+  { id: "EXPECT_CALL", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Rust .expect() can panic" },
 
   // legacy-code
   { id: "DEPRECATED_ANNOTATION", category: "legacy-code", tier: 2, tool: "grep", desc: "@deprecated code still present" },
   { id: "TODO_REMOVE", category: "legacy-code", tier: 1, tool: "grep", desc: "TODO flagged for removal" },
   { id: "DEAD_FEATURE_FLAG", category: "legacy-code", tier: 0, tool: "grep", desc: "Feature flag always on/off" },
+  { id: "FIXME_HACK_XXX", category: "legacy-code", tier: 0, tool: "grep", desc: "FIXME/HACK/XXX — known bad code" },
+  { id: "TODO_MACRO", category: "legacy-code", tier: 0, tool: "ast-grep", desc: "Rust todo!()/unimplemented!() macro" },
 
   // type-fragmentation
   { id: "DUPLICATE_TYPE", category: "type-fragmentation", tier: 0, tool: "ast-grep", desc: "Same type defined in multiple files" },
@@ -56,6 +74,7 @@ const RULES = [
   { id: "LONG_FUNCTION", category: "complexity", tier: 0, tool: "grep", desc: "Function exceeds 50 lines" },
   { id: "DEEP_NESTING", category: "complexity", tier: 0, tool: "grep", desc: "Conditional nesting 3+ levels" },
   { id: "MANY_PARAMS", category: "complexity", tier: 0, tool: "ast-grep", desc: "Function with 5+ parameters" },
+  { id: "NESTED_TERNARY", category: "complexity", tier: 0, tool: "grep", desc: "Nested ternary chain" },
 ];
 
 export default defineCommand({

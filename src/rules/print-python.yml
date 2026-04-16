@@ -1,0 +1,9 @@
+id: PRINT_STATEMENT
+language: python
+rule:
+  kind: call
+  has:
+    kind: identifier
+    regex: "^print$"
+message: "print() left in production code — use logging module"
+severity: warning

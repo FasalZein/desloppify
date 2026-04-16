@@ -1,0 +1,11 @@
+id: EXPECT_CALL
+language: rust
+rule:
+  kind: call_expression
+  has:
+    kind: field_expression
+    has:
+      kind: field_identifier
+      regex: "^expect$"
+message: ".expect() can panic — prefer ? or proper error handling"
+severity: warning

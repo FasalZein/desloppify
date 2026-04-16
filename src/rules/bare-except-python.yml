@@ -1,0 +1,9 @@
+id: BARE_EXCEPT
+language: python
+rule:
+  kind: except_clause
+  not:
+    has:
+      kind: identifier
+message: "Bare except catches everything including KeyboardInterrupt and SystemExit"
+severity: error

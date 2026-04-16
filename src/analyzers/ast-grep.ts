@@ -159,4 +159,46 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "@deprecated annotation — this code should be removed",
     fix: "Remove the deprecated code and update callers",
   },
+  // Python rules
+  BARE_EXCEPT: {
+    category: "defensive-programming",
+    severity: "HIGH",
+    tier: 2,
+    message: "Bare except catches everything including KeyboardInterrupt",
+    fix: "Specify the exception type: except ValueError, except Exception",
+  },
+  PASS_STUB: {
+    category: "ai-slop",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Pass-only function body — likely a stub never implemented",
+  },
+  PRINT_STATEMENT: {
+    category: "ai-slop",
+    severity: "MEDIUM",
+    tier: 1,
+    message: "print() left in production code",
+    fix: "Remove or replace with logging module",
+  },
+  // Rust rules
+  UNWRAP_CALL: {
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: ".unwrap() can panic at runtime",
+    fix: "Use ? operator or match/if-let for error handling",
+  },
+  EXPECT_CALL: {
+    category: "defensive-programming",
+    severity: "LOW",
+    tier: 0,
+    message: ".expect() can panic — prefer proper error handling",
+  },
+  TODO_MACRO: {
+    category: "legacy-code",
+    severity: "HIGH",
+    tier: 0,
+    message: "todo!()/unimplemented!() macro left in code",
+    fix: "Implement the missing logic or remove",
+  },
 };
