@@ -1,125 +1,79 @@
 # Desloppify
 
-Agent-agnostic code cleanup. Catches 116+ anti-patterns across 16 categories that AI coding agents introduce into codebases. From god files and barrel exports to weak tests, accessibility violations, async correctness, runtime validation gaps, naming semantics, and security slop. The definitive AI slop destroyer.
-
-CLI does deterministic detection. Your agent handles triage and judgment fixes. Each fix category runs on its own git worktree for safe parallel execution.
-
-## Install
+The AI slop destroyer. Catches 116+ anti-patterns across 16 categories that AI coding agents introduce into codebases.
 
 ```bash
-# Run directly — no install needed (requires Bun)
 bunx desloppify scan .
-bunx desloppify score .
-
-# Or install globally
-bun install -g desloppify
-
-# Install the agent skill (works with any agent that reads SKILL.md)
-npx skills add FasalZein/desloppify
 ```
 
-### Manual Install
+Works with `npx` too. Requires [Bun](https://bun.sh).
 
-```bash
-# Clone and link
-git clone https://github.com/FasalZein/desloppify.git ~/.claude/skills/desloppify
-cd ~/.claude/skills/desloppify && bun install && bun link
+## What it does
+
+CLI does deterministic detection. Your agent handles triage and fixes. Each fix category runs on its own git worktree for safe parallel execution.
+
 ```
+desloppify scan [path]              # detect issues (pretty terminal output)
+desloppify scan [path] --json       # machine-readable for agents
+desloppify scan [path] --category   # single category
+desloppify score [path]             # weighted quality grade
+desloppify fix [path] --safe        # auto-fix tier 1 (safe mechanical fixes)
+desloppify rules                    # list all 116+ rules
+desloppify check-tools              # show available analyzers
+```
+
+## What it catches
+
+| Category | Examples |
+|----------|----------|
+| AI Slop | Banner comments, narration, hedging, placeholder data, console.log |
+| Complexity | God files (1200+ LOC), barrel exports, mixed concerns, deep nesting, monolith routes |
+| Security | Hardcoded secrets, SQL injection, eval/exec, pickle, hardcoded URLs |
+| Test Quality | Empty tests, weak assertions, sleepy tests, skipped tests, snapshot overuse |
+| Async Correctness | forEach async, blocking requests, sequential awaits, callback/promise mix |
+| Dead Code | Unused exports, functions, files, dependencies (via knip) |
+| Weak Types | `any`, `as any`, `object`, `Function`, `@ts-ignore` |
+| Runtime Validation | Unvalidated req.body, JSON.parse casts, fetch response casts |
+| Accessibility | Interactive divs, missing alt text, inputs without labels |
+| Circular Dependencies | Import cycles between modules (via madge) |
+| Defensive Programming | Empty catch, catch-log-continue, mutable defaults |
+| Naming & Semantics | Numeric suffixes, generic bucket files, Python builtin shadowing |
+| Inconsistency | Mixed imports, wildcard re-exports, scattered env, hardcoded Tailwind colors |
+| Legacy Code | @deprecated, TODO/FIXME, moment.js, callback-style APIs |
+| Type Fragmentation | Duplicate types, complex inline types |
+| Duplication | Near-identical functions, repeated string literals |
+
+## Scoring
+
+Each issue deducts points based on severity (critical=5, high=3, medium=1, low=0.5) multiplied by category weight (security=2x, async/types=1.5x, ai-slop=0.5x). Per-category cap at 20 points prevents one category from dominating.
+
+Grades: A+ (95-100) A (85-94) B (70-84) C (50-69) D (30-49) F (0-29)
 
 ## Requirements
 
 - [Bun](https://bun.sh) runtime
-- [ast-grep](https://ast-grep.github.io) (`sg`) — structural pattern matching (34 languages)
+- [ast-grep](https://ast-grep.github.io) — structural pattern matching
 
-Optional (auto-detected, improves coverage):
-- `knip` — dead code detection (JS/TS)
-- `madge` — circular dependency detection (JS/TS)
-- `tsc` — TypeScript implicit any detection
-- `ruff` / `mypy` / `vulture` — Python analysis
-- `cargo clippy` — Rust analysis
-- `staticcheck` — Go analysis
+Optional (auto-detected):
+- `knip` — dead code (JS/TS)
+- `madge` — circular deps (JS/TS)
+- `tsc` — implicit any detection
 
-## Usage
+## Languages
 
-```bash
-# Check what tools are available
-desloppify check-tools
+| Language | Coverage |
+|----------|----------|
+| TypeScript / JavaScript | Full — 55+ rules via ast-grep, knip, madge, tsc, grep |
+| Python | Structural + supplement — ast-grep rules + ruff/mypy/vulture |
+| Rust | Structural + supplement — ast-grep rules + cargo clippy |
+| Go | Supplement — staticcheck |
+| Any (34 languages) | Regex patterns — grep-based rules |
 
-# Scan a project
-desloppify scan .
-desloppify scan . --markdown
-desloppify scan . --category ai-slop
+## Agent integration
 
-# Auto-fix safe issues (tier 1 only)
-desloppify fix . --safe
+The `skills/desloppify/SKILL.md` file ships with the package. Any agent that reads SKILL.md can use it. The CLI outputs both human-readable terminal UI and `--json` for machine consumption.
 
-# Get a weighted quality score
-desloppify score .
-desloppify score . --json
-
-# List all detection rules
-desloppify rules
-desloppify rules --category weak-types
-```
-
-Or invoke via your agent: just say "desloppify" or "clean up code" and the skill takes over.
-
-## Categories
-
-| Category | What it catches |
-|----------|----------------|
-| `dead-code` | Unused exports, functions, files, dependencies |
-| `weak-types` | `any`, `as any`, `object`, `Function`, `@ts-ignore` |
-| `ai-slop` | Banner comments, narration, hedging, console.log, placeholder data |
-| `circular-deps` | Import cycles between modules |
-| `duplication` | Near-identical functions, repeated string literals |
-| `defensive-programming` | Empty catch, catch-log-continue, deep optional chains |
-| `legacy-code` | `@deprecated`, TODO/FIXME, dead feature flags |
-| `type-fragmentation` | Duplicate types, complex inline types |
-| `inconsistency` | Mixed naming, mixed exports, unlisted deps, `export *` namespace pollution, star imports |
-| `complexity` | God files (1200+ LOC), large files (800+), long files (500+), barrel exports, mixed concerns (route+DB), import-heavy files (15+), monolith routes, deep nesting, many params |
-| `security-slop` | Hardcoded secrets, SQL injection, hardcoded URLs, eval/exec, pickle |
-| `test-quality` | Empty tests, weak assertions, sleepy tests, skipped tests, snapshot overuse |
-| `async-correctness` | forEach async, blocking requests in async, sequential awaits, callback/promise mix |
-| `runtime-validation` | Unvalidated req.body, JSON.parse casts, fetch response casts, localStorage casts |
-| `accessibility` | Interactive divs, missing aria-labels, missing alt text, inputs without labels |
-| `naming-semantics` | Numeric suffixes, generic bucket files, Python builtin shadowing |
-
-## Scoring System
-
-```
-╔════════════════════════════╗
-║  DESLOPPIFY SCORE:  73     ║
-║  GRADE: B                   ║
-╚════════════════════════════╝
-```
-
-Each issue deducts points based on severity (CRITICAL=5, HIGH=3, MEDIUM=1, LOW=0.5) multiplied by category weight (security-slop=2x, weak-types/defensive/circular-deps=1.5x, ai-slop/legacy/inconsistency=0.5x). Per-category penalty capped at 20 points to prevent one category from dominating.
-
-**Grades:** A+(95-100) A(85-94) B(70-84) C(50-69) D(30-49) F(0-29)
-
-## How It Works
-
-```
-1. Scan    → desloppify scan [path]           # deterministic detection
-2. Score   → desloppify score [path]          # weighted quality grade
-3. Triage  → agent reviews JSON output        # judgment: fix / skip / flag
-4. Fix     → one sub-agent per category       # each on its own git worktree
-5. Merge   → merge worktree branches          # re-scan to verify improvement
-```
-
-**Hard rule: no worktree = no agent.** Every fix sub-agent runs on an isolated git worktree. If worktree creation fails, that category is skipped — never run without isolation.
-
-## Safety Tiers
-
-| Tier | What | Validation |
-|------|------|------------|
-| T1 | Mechanical fixes (comment removal, slop cleanup) | Git checkpoint only |
-| T2 | AST-validated fixes (empty catch, type casts) | AST re-parse |
-| T3 | Cross-file fixes (dead code, type consolidation) | Type checker / build |
-| Flag-only | Public API, dynamic access, serialization | Never auto-fixed |
-
-## False Positives
+## False positives
 
 ```bash
 # Inline suppression
@@ -129,53 +83,7 @@ console.log("intentional"); // desloppify:ignore CONSOLE_LOG
 dist/
 coverage/
 *.gen.ts
-*.min.js
 ```
-
-## File Structure
-
-```
-desloppify/
-├── skills/
-│   └── desloppify/
-│       └── SKILL.md              # Agent-facing skill protocol
-├── src/
-│   ├── cli.ts                    # CLI entry point (citty)
-│   ├── types.ts                  # Core types
-│   ├── tools.ts                  # Tool detection
-│   ├── commands/
-│   │   ├── scan.ts               # Scan orchestrator
-│   │   ├── score.ts              # Weighted scoring system
-│   │   ├── fix.ts                # Auto-fix engine
-│   │   ├── rules.ts              # Rule catalog
-│   │   ├── worktrees.ts          # Worktree setup generator
-│   │   └── check-tools.ts        # Tool availability
-│   ├── analyzers/
-│   │   ├── ast-grep.ts           # Structural patterns
-│   │   ├── grep-patterns.ts      # Regex-based detection
-│   │   ├── knip.ts               # Dead code (JS/TS)
-│   │   ├── madge.ts              # Circular deps
-│   │   └── tsc.ts                # Implicit any
-│   └── rules/                    # ast-grep YAML rules
-│       ├── any-type.yml
-│       ├── empty-catch.yml
-│       ├── bare-except-python.yml
-│       ├── unwrap-rust.yml
-│       └── ...                   # 13 rules total
-└── package.json
-```
-
-## Supported Languages
-
-The CLI auto-detects language from file extensions:
-
-| Language | Detection | Tool |
-|----------|-----------|------|
-| TypeScript/JavaScript | Full (55+ rules) | ast-grep, knip, madge, tsc, grep |
-| Python | Structural + supplement | ast-grep rules + ruff/mypy/vulture |
-| Rust | Structural + supplement | ast-grep rules + cargo clippy |
-| Go | Supplement | staticcheck |
-| Any (34 languages) | Regex patterns | grep-based rules |
 
 ## License
 

@@ -1,122 +1,104 @@
 ---
 name: desloppify
 description: >
-  Agent-agnostic code cleanup. CLI detects 116+ rules across 16 categories.
-  Agent triages, spawns fix sub-agents on git worktrees, merges results.
-  Use when: desloppify, clean up code, remove slop, code quality audit,
-  deep refactor, remove AI slop, remove dead code, fix types.
+  Code quality scanner. 116+ rules across 16 categories detect AI-introduced
+  anti-patterns. Run the CLI, triage results, fix on isolated git worktrees.
+  Trigger: desloppify, clean up code, remove slop, code quality, dead code.
 ---
 
 # Desloppify
 
-CLI detects. You triage and fix. Every fix agent runs on its own git worktree.
+CLI detects. You triage and fix. Every fix runs on its own git worktree.
 
-## When to invoke
+## When to use
 
-- "desloppify", "clean up code", "remove slop", "code quality", "remove dead code"
+- User says "desloppify", "clean up code", "remove slop", "code quality"
 - After AI-assisted development sprints
-- Before a release or periodic hygiene
+- Before a release or code review
 
 ## Workflow
 
 ```
-1. Scan    → desloppify scan [path]
-2. File    → wiki research file (if /wiki available)
-3. Triage  → review JSON, decide Fix / Skip / Flag per category
-4. Fix     → one sub-agent per Fix category, each on a git worktree
-5. Merge   → merge worktree branches, run tests, re-scan
-6. Close   → wiki closeout (if /wiki available)
+1. Scan       → run CLI, review output
+2. Triage     → decide Fix / Skip / Flag per category
+3. Fix        → one sub-agent per category, each on a git worktree
+4. Verify     → re-scan, confirm score improved
 ```
 
-### Phase 1: Scan
+### Step 1: Scan
 
 ```bash
-desloppify check-tools                    # what's available
-desloppify scan [path]                    # full JSON report
-desloppify scan [path] --markdown         # human-readable
+desloppify scan [path]                    # terminal report
+desloppify scan [path] --json             # machine-readable
 desloppify scan [path] --category <id>    # single category
+desloppify score [path]                   # weighted quality grade
+desloppify check-tools                    # available analyzers
 ```
 
-The CLI auto-detects language. For non-JS/TS projects with few findings, supplement:
-- **Python:** `ruff check .`, `mypy .`, `vulture .`
-- **Rust:** `cargo clippy -- -W clippy::all`
-- **Go:** `staticcheck ./...`
+For non-JS/TS projects, supplement with native tools:
+- Python: `ruff check .`, `mypy .`, `vulture .`
+- Rust: `cargo clippy -- -W clippy::all`
+- Go: `staticcheck ./...`
 
-### Phase 2: File audit
-
-If `/wiki` is available: `wiki research file <project> "desloppify-audit-$(date +%Y-%m-%d)"`
-
-### Phase 3: Triage
+### Step 2: Triage
 
 For each category with issues, decide:
 - **Fix** — delegate to a sub-agent on a worktree
-- **Skip** — by design or not worth churn
+- **Skip** — by design, not worth churn
 - **Flag-only** — public API, dynamic access, serialization — never auto-fix
 
-The CLI handles detection. You handle judgment: Is this try-catch necessary? Is this duplication intentional? Is this comment helpful or LLM narration?
+You handle judgment. Is this try-catch necessary? Is this duplication intentional? Is this comment helpful or AI narration?
 
-### Phase 4: Fix sub-agents
+### Step 3: Fix
 
-**Hard rule: no worktree = no agent.**
+**No worktree = no fix agent.** Every fix sub-agent runs isolated.
 
 ```bash
-# Create worktrees for each Fix category
-desloppify worktrees [path]               # prints git worktree add commands
-
-# Verify each worktree exists before spawning its agent
-# If creation fails, skip that category — do not run without a worktree
+desloppify worktrees [path]               # prints worktree setup commands
 ```
 
-Each sub-agent receives:
+Each sub-agent gets:
 1. Its worktree path
-2. The scan JSON slice for its category only
-3. Instructions: `desloppify fix . --safe` first, then judgment fixes, then re-scan to verify
+2. The `--json` scan slice for its category
+3. Run `desloppify fix . --safe` first, then judgment fixes, then re-scan
 
-Use your harness's native sub-agent mechanism. Run all in parallel.
+Run all fix agents in parallel using your native sub-agent mechanism.
 
-### Phase 5: Merge + verify
+### Step 4: Verify
 
 ```bash
 git checkout main
 git merge fix/dead-code fix/weak-types fix/ai-slop ...
 git worktree prune
-desloppify scan [path]                    # verify score improved
-# run existing test suite if available
+desloppify scan [path]                    # confirm improvement
 ```
 
-### Phase 6: Wiki closeout
+## Commands
 
-If `/wiki` is available: `wiki checkpoint` → `wiki maintain` → `wiki closeout` → `wiki gate`
-
-## CLI reference
-
-| Command | Purpose |
-|---------|---------|
-| `desloppify scan [path]` | Detect issues → JSON |
-| `desloppify scan --markdown` | Human-readable report |
+| Command | What it does |
+|---------|-------------|
+| `desloppify scan [path]` | Detect issues, terminal report |
+| `desloppify scan --json` | Machine-readable JSON output |
+| `desloppify scan --category <id>` | Single category scan |
+| `desloppify score [path]` | Weighted quality score + grade |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |
 | `desloppify rules` | List all 116+ detection rules |
-| `desloppify score [path]` | Weighted quality score + grade |
-| `desloppify rules --category <id>` | Filter by category |
 | `desloppify check-tools` | Show available analyzers |
 | `desloppify worktrees [path]` | Print worktree setup commands |
 
-Safety tiers: T1 = git checkpoint only, T2 = AST validation, T3 = type checker/build, flag-only = never auto-fixed.
+## Safety tiers
 
-## False positive handling
+- **T1** — Mechanical fixes (comment removal). Git checkpoint only.
+- **T2** — AST-validated fixes (empty catch, type casts). AST re-parse.
+- **T3** — Cross-file fixes (dead code, type consolidation). Type checker / build.
+- **Flag-only** — Public API, dynamic access, serialization. Never auto-fixed.
+
+## Suppression
 
 ```bash
-# Suppress a rule for a specific file
-# desloppify:ignore RULE_ID
-console.log("intentional debug output"); // desloppify:ignore CONSOLE_LOG
-
-# Project-level ignores in .desloppifyignore
-dist/
-coverage/
-*.gen.ts
-*.min.js
+console.log("intentional"); // desloppify:ignore CONSOLE_LOG
 ```
 
-The CLI respects `.desloppifyignore` (gitignore syntax) and inline `desloppify:ignore` comments.
+Project-level: `.desloppifyignore` (gitignore syntax).
