@@ -1,7 +1,7 @@
 {
   "name": "desloppify",
   "version": "0.0.1",
-  "description": "Agent-agnostic code cleanup CLI. Detects 116+ rules across 16 categories of AI code rot.",
+  "description": "Your AI wrote spaghetti. This eats it. 116 rules across 16 categories of AI slop detection.",
   "type": "module",
   "bin": {
     "desloppify": "./bin/desloppify.js"
