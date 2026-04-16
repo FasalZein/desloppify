@@ -1,8 +1,8 @@
 ---
 name: desloppify
 description: >
-  Code quality scanner. 116+ rules across 16 categories detect AI-introduced
-  anti-patterns. Run the CLI, triage results, fix on isolated git worktrees.
+  Code quality scanner. Detects AI-introduced anti-patterns across many
+  categories. Run the CLI, triage results, fix on isolated git worktrees.
   Trigger: desloppify, clean up code, remove slop, code quality, dead code.
 ---
 
@@ -16,31 +16,53 @@ CLI detects. You triage and fix. Every fix runs on its own git worktree.
 - After AI-assisted development sprints
 - Before a release or code review
 
-## Workflow
+## Step 0: Set up tools
 
-```
-1. Scan       → run CLI, review output
-2. Triage     → decide Fix / Skip / Flag per category
-3. Fix        → one sub-agent per category, each on a git worktree
-4. Verify     → re-scan, confirm score improved
+Before scanning, check what's available and install what's missing:
+
+```bash
+desloppify check-tools [path]             # shows project-aware recommendations
 ```
 
-### Step 1: Scan
+The CLI auto-detects your project type (TS, Python, Rust, Go) and recommends relevant tools. Install the recommended ones for best coverage:
+
+**JS/TS projects:**
+```bash
+bun add -d knip madge                     # dead code + circular deps
+bun add -d @biomejs/biome                 # fast linter (slop blocker)
+bun add -d oxlint                         # blazing fast lint (pre-commit)
+```
+
+**Python projects:**
+```bash
+pip install ruff mypy vulture             # lint + types + dead code
+```
+
+**Rust projects:**
+```bash
+rustup component add clippy               # lint + anti-patterns
+```
+
+**Go projects:**
+```bash
+go install honnef.co/go/tools/cmd/staticcheck@latest
+```
+
+**Always recommended:**
+```bash
+brew install ast-grep                     # structural pattern matching
+```
+
+## Step 1: Scan
 
 ```bash
 desloppify scan [path]                    # terminal report
-desloppify scan [path] --json             # machine-readable
+desloppify scan [path] --json             # machine-readable for agents
 desloppify scan [path] --category <id>    # single category
 desloppify score [path]                   # weighted quality grade
-desloppify check-tools                    # available analyzers
 ```
 
-For non-JS/TS projects, supplement with native tools:
-- Python: `ruff check .`, `mypy .`, `vulture .`
-- Rust: `cargo clippy -- -W clippy::all`
-- Go: `staticcheck ./...`
-
-### Step 2: Triage
+## Step 2: Triage
 
 For each category with issues, decide:
 - **Fix** — delegate to a sub-agent on a worktree
@@ -49,7 +71,7 @@ For each category with issues, decide:
 
 You handle judgment. Is this try-catch necessary? Is this duplication intentional? Is this comment helpful or AI narration?
 
-### Step 3: Fix
+## Step 3: Fix
 
 **No worktree = no fix agent.** Every fix sub-agent runs isolated.
 
@@ -64,7 +86,7 @@ Each sub-agent gets:
 
 Run all fix agents in parallel using your native sub-agent mechanism.
 
-### Step 4: Verify
+## Step 4: Verify
 
 ```bash
 git checkout main
@@ -84,8 +106,8 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |
-| `desloppify rules` | List all 116+ detection rules |
-| `desloppify check-tools` | Show available analyzers |
+| `desloppify rules` | List all detection rules |
+| `desloppify check-tools [path]` | Project-aware tool recommendations |
 | `desloppify worktrees [path]` | Print worktree setup commands |
 
 ## Safety tiers
