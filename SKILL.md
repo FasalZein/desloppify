@@ -20,6 +20,14 @@ Not a linter. Catches what linters miss: duplicated abstractions, hidden error s
 - Before a major release
 - Periodic hygiene on any codebase
 
+## Required Skills
+
+This skill integrates with:
+- `/wiki` — file the scan audit as research, run closeout gates after fixes
+- `/tdd` — optional; run existing tests to verify fixes don't break behavior (do NOT write new tests for cleanup work)
+
+If `/wiki` is unavailable, skip the filing and closeout steps but still run the full fix workflow.
+
 ## CLI commands
 
 ```bash
@@ -132,26 +140,143 @@ Functions over 50 lines, files over 500 lines, deeply nested conditionals (3+), 
 **Tool:** line counting + `ast-grep` nesting rules.
 **Rules:** `LONG_FUNCTION`, `LONG_FILE`, `DEEP_NESTING`, `MANY_PARAMS`, `HIGH_COMPLEXITY`
 
-## Workflow for agents
+## Workflow
+
+The scan IS the research. No web search needed — the CLI audit produces the evidence. The wiki layer files it so decisions are traceable.
 
 ```
-1. desloppify check-tools          → see what's available
-2. desloppify scan [path]          → get the full report
-3. Review CRITICAL and HIGH issues → these need attention
-4. desloppify fix [path] --safe    → auto-fix mechanical issues
-5. For judgment-required issues:
-   - Read the flagged file + surrounding context
-   - Decide: is this catch block necessary? Is this abstraction justified?
-   - Apply fixes manually using your edit capabilities
-6. desloppify scan [path]          → verify score improved
+Phase 1: Scan (main agent, read-only, no worktree)
+Phase 2: File audit in wiki
+Phase 3: Triage — main agent decides what to fix, skip, or flag-only
+Phase 4: Parallel fix sub-agents (one per active category, each on a git worktree)
+Phase 5: Merge worktrees + run existing tests
+Phase 6: Wiki closeout
 ```
 
-**Judgment rules** (agent decides, CLI only flags):
+### Phase 1: Scan
+
+```bash
+desloppify check-tools          # see what's available
+desloppify scan [path]          # full JSON report
+```
+
+Save the full JSON output. You will slice it by category and pass relevant sections to each sub-agent in Phase 4. Do not start fixing before the full scan is complete.
+
+### Phase 2: File audit in wiki
+
+If `/wiki` is available, file the scan report as a research artifact:
+
+```bash
+wiki research file <project> "desloppify-audit-$(date +%Y-%m-%d)"
+```
+
+This creates a traceable record in `research/projects/<project>/`. Paste in the scan's markdown summary and score. This is not a forge research step — the scan is the evidence, not a literature review.
+
+### Phase 3: Triage
+
+Review CRITICAL and HIGH issues first. For each active category (categories with count > 0), decide:
+
+- **Fix**: worth addressing, safe to delegate to a sub-agent
+- **Skip**: issues are by design or not worth the churn — document why in the wiki
+- **Flag-only**: public API changes, dynamic patterns, serialization — never auto-fix; leave a comment in code
+
+Judgment rules (agent decides, CLI only flags):
 - Is a try-catch protecting a real boundary or just defensive theater?
 - Should duplicate code be consolidated or is the similarity coincidental?
 - Is a comment helpful for newcomers or just LLM narration?
 - Should fragmented types be merged or do they represent distinct domains?
 - Is an abstraction over-engineered or does it serve future extensibility?
+
+### Phase 4: Parallel fix sub-agents
+
+Spawn one sub-agent per active "Fix" category. Do NOT spawn sub-agents for skipped or flag-only categories. A clean codebase may need 2-3 agents; a messy one 6-7. The scan output determines parallelism.
+
+#### Worktree protocol
+
+Each sub-agent gets its own git worktree. Git worktrees are harness-agnostic — it's only the agent spawn syntax that varies.
+
+```bash
+# Main agent: set up a worktree per category before spawning
+git worktree add ../desloppify-dead-code -b fix/dead-code
+git worktree add ../desloppify-weak-types -b fix/weak-types
+# ... one per active category
+
+# Each sub-agent: fix, then commit
+cd <worktree-path>
+desloppify fix . --safe           # mechanical fixes first
+# apply judgment fixes manually
+git add -p && git commit -m "fix(<category>): desloppify cleanup"
+
+# Main agent: after all sub-agents complete, merge and clean up
+git checkout main
+git merge fix/dead-code fix/weak-types ...
+git worktree remove ../desloppify-dead-code
+git worktree remove ../desloppify-weak-types
+```
+
+If worktrees cause merge conflicts between categories (e.g., two categories touch the same file), resolve on main after the merge.
+
+#### Sub-agent prompt template
+
+Fill ALL fields before dispatching. Pass the category's issue slice from the scan JSON directly — never make sub-agents re-run the scan.
+
+```
+Fix code quality issues for ONE category in the following worktree.
+
+CATEGORY: [e.g., dead-code]
+WORKTREE PATH: [absolute path to worktree]
+SCAN FINDINGS (this category only):
+[paste the relevant JSON slice from Phase 1 scan output]
+
+STEPS:
+1. cd to the worktree path
+2. Run: desloppify fix . --safe    (mechanical fixes — Tier 1 only)
+3. For each remaining HIGH/CRITICAL finding in the scan slice:
+   - Read the flagged file
+   - Apply the fix described in the issue's "fix" field
+   - Skip anything marked tier 3 or flag-only without type checker confirmation
+4. Run: desloppify scan . --category [category-id]
+   - Score must improve or stay equal. If it worsens, revert and report.
+5. Commit all changes: git add -p && git commit -m "fix([category]): desloppify cleanup"
+
+RETURN: list of files changed, issues fixed, issues skipped (with reason), final category score.
+```
+
+#### Spawning sub-agents — harness syntax
+
+The agent spawn mechanism varies by harness. The git worktree setup and desloppify CLI commands are identical regardless.
+
+| Harness | Spawn syntax |
+|---------|-------------|
+| Claude Code | `Agent(prompt="<filled template>", model="sonnet")` |
+| Pi Agent | `subagent(name="fix-<category>", task="<filled template>", tools="read,bash,edit")` |
+| OpenCode | `Task(prompt="<filled template>")` |
+| No sub-agent support | Run categories sequentially in the main context; skip worktrees |
+
+Run all sub-agents in parallel when the harness supports it.
+
+### Phase 5: Merge + verify
+
+After all sub-agents complete and report back:
+
+1. Review each sub-agent's return (files changed, skipped issues, final score)
+2. Merge all worktree branches into main (resolve any conflicts)
+3. Remove all worktrees: `git worktree prune`
+4. Run the full scan again to confirm overall score improved: `desloppify scan [path]`
+5. Run existing tests to verify no behavior was broken. If the project has a test command, run it now. Do NOT write new tests — cleanup work does not require new test coverage.
+
+### Phase 6: Wiki closeout
+
+If `/wiki` is available:
+
+```bash
+wiki checkpoint <project> --repo <path>
+wiki maintain <project> --repo <path> --base <rev>
+wiki closeout <project> --repo <path> --base <rev>
+wiki gate <project> --repo <path> --base <rev>
+```
+
+Update any wiki pages that reference modules where cleanup changed behavior-visible structure (e.g., a module's public exports changed due to dead-code removal). Use `wiki verify-page <project> <page> code-verified` after updating.
 
 ## Graceful degradation
 
@@ -163,3 +288,5 @@ Coverage: 8/10 categories active (circular-deps, some duplication unavailable)
 ```
 
 The CLI never fails because a tool is missing — it just does less.
+
+When sub-agent support is unavailable, run categories sequentially in the main context. Skip worktrees. The workflow is the same; only parallelism is lost.
