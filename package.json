@@ -1,6 +1,6 @@
 {
   "name": "desloppify",
-  "version": "2.0.0",
+  "version": "0.0.1",
   "description": "Agent-agnostic code cleanup CLI. Detects 116+ rules across 16 categories of AI code rot.",
   "type": "module",
   "bin": {
@@ -10,6 +10,7 @@
     "bin/",
     "src/",
     "skills/",
+    "scripts/",
     "README.md",
     "LICENSE"
   ],
@@ -20,7 +21,8 @@
     "fix": "bun src/cli.ts fix",
     "rules": "bun src/cli.ts rules",
     "check-tools": "bun src/cli.ts check-tools",
-    "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts"
+    "build": "bun build --compile --minify --bytecode --outfile desloppify src/cli.ts",
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "ai-slop",
@@ -29,7 +31,8 @@
     "cleanup",
     "dead-code",
     "cli",
-    "agent"
+    "agent",
+    "desloppify"
   ],
   "repository": {
     "type": "git",
@@ -46,6 +49,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@clack/prompts": "1.2.0",
     "citty": "0.2.2"
   }
 }

@@ -11,7 +11,10 @@ import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
 import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
 import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
 import { calculateScore, getGrade } from "./score";
-import { Progress, scoreBox, severitySummary, categoryTable, issueList, toolStatus, footer, c } from "../ui";
+import {
+  scanIntro, scanOutro, createSpinner, showTools,
+  showScore, showSeveritySummary, showCategories, showIssues,
+} from "../ui";
 
 export default defineCommand({
   meta: { name: "scan", description: "Analyze codebase for issues" },
@@ -30,18 +33,23 @@ export default defineCommand({
     const isJson = args.json;
     const t0 = performance.now();
 
-    const progress = isJson ? null : new Progress();
+    if (!isJson && !args.markdown) {
+      scanIntro("0.0.1");
+      showTools(tools);
+    }
+
+    const spin = (!isJson && !args.markdown) ? createSpinner() : null;
 
     // Phase 1: Walk files
-    progress?.start("Walking file tree...");
+    spin?.start("Walking file tree...");
     const entries = await walkFiles(targetPath);
-    progress?.update(`Analyzing ${entries.length} files...`);
 
     // Phase 2: Run internal analyzers
+    spin?.message(`Analyzing ${entries.length} files...`);
     allIssues.push(...runGrepPatternsFromEntries(entries));
     allIssues.push(...runGrepExtendedFromEntries(entries));
     allIssues.push(...runFileMetricsFromEntries(entries));
-    progress?.stop(`${entries.length} files scanned (${allIssues.length} issues from patterns)`);
+    spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
 
     // Phase 3: Run external tool analyzers
     const tasks: { name: string; promise: Promise<Issue[]> }[] = [];
@@ -60,12 +68,15 @@ export default defineCommand({
     }
 
     if (tasks.length > 0) {
-      progress?.start(`Running ${tasks.map((t) => t.name).join(", ")}...`);
+      const extSpin = (!isJson && !args.markdown) ? createSpinner() : null;
+      extSpin?.start(`Running ${tasks.map((t) => t.name).join(", ")}...`);
       const results = await Promise.all(tasks.map((t) => t.promise));
+      let extCount = 0;
       for (const issues of results) {
+        extCount += issues.length;
         allIssues.push(...issues);
       }
-      progress?.stop(`External tools done (+${allIssues.length - entries.length} issues)`);
+      extSpin?.stop(`External tools done — ${extCount} additional issues`);
     }
 
     // Filter by category if specified
@@ -89,17 +100,17 @@ export default defineCommand({
     }
 
     // ── Pretty terminal output ─────────────────────────────────
-    const { score, grade } = calculateScore(filtered);
+    const { score, grade, penalty } = calculateScore(filtered);
 
     // Score box
-    scoreBox(score, grade);
+    showScore(score, grade, filtered.length, penalty);
 
     // Severity summary
     const summary = { critical: 0, high: 0, medium: 0, low: 0 };
     for (const issue of filtered) {
       summary[issue.severity.toLowerCase() as keyof typeof summary]++;
     }
-    severitySummary(summary);
+    showSeveritySummary(summary);
 
     // Category breakdown
     const categories: Record<string, { count: number; fixable: number }> = {};
@@ -108,19 +119,15 @@ export default defineCommand({
       categories[issue.category].count++;
       if (issue.tier > 0) categories[issue.category].fixable++;
     }
-    categoryTable(categories);
+    showCategories(categories);
 
     // Issues list
     if (filtered.length > 0) {
       const groupBy = args["group-by"] === "category" ? "category" : "severity";
-      issueList(filtered, { limit: args.verbose ? Infinity : 10, groupBy });
+      showIssues(filtered, { limit: args.verbose ? Infinity : 10, groupBy });
     }
 
-    // Footer
-    console.log("");
-    toolStatus(tools);
-    footer(elapsed, entries.length);
-
+    scanOutro(elapsed, entries.length);
     process.exit(filtered.length > 0 ? 1 : 0);
   },
 });
@@ -135,24 +142,18 @@ function buildReport(
 
   for (const issue of issues) {
     summary[issue.severity.toLowerCase() as keyof typeof summary]++;
-
     if (!categories[issue.category]) {
       categories[issue.category] = { count: 0, fixable: 0 };
     }
     categories[issue.category]!.count++;
-    if (issue.tier > 0) {
-      categories[issue.category]!.fixable++;
-    }
+    if (issue.tier > 0) categories[issue.category]!.fixable++;
   }
-
-  const total = issues.length;
-  const score = total === 0 ? 100 : Math.max(0, 100 - total * 2);
 
   return {
     version: "2.0.0",
     path,
     tools,
-    score,
+    score: Math.max(0, 100 - issues.length * 2),
     summary,
     categories,
     issues,
@@ -163,7 +164,6 @@ function formatMarkdown(report: ScanReport): string {
   const lines: string[] = [
     "# Desloppify Report",
     "",
-    `**Score:** ${report.score}/100`,
     `**Path:** ${report.path}`,
     "",
     "## Summary",
@@ -185,16 +185,12 @@ function formatMarkdown(report: ScanReport): string {
     "",
   ];
 
-  const bySeverity = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
-  for (const sev of bySeverity) {
+  for (const sev of ["CRITICAL", "HIGH", "MEDIUM", "LOW"]) {
     const sevIssues = report.issues.filter((i) => i.severity === sev);
     if (sevIssues.length === 0) continue;
-
     lines.push(`### ${sev}`, "");
     for (const issue of sevIssues) {
-      lines.push(
-        `- **${issue.id}** \`${issue.file}:${issue.line}\` — ${issue.message}`
-      );
+      lines.push(`- **${issue.id}** \`${issue.file}:${issue.line}\` — ${issue.message}`);
       if (issue.fix) lines.push(`  - Fix: ${issue.fix}`);
     }
     lines.push("");
