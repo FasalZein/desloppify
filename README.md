@@ -1,6 +1,6 @@
 # Desloppify
 
-Agent-agnostic code cleanup. Catches 55+ anti-patterns across 10 categories that AI coding agents introduce into codebases — defensive try-catch, weak types, dead code, AI narration comments, circular deps, and more.
+Agent-agnostic code cleanup. Catches 63+ anti-patterns across 11 categories that AI coding agents introduce into codebases — security slop, defensive try-catch, weak types, dead code, AI narration comments, circular deps, and more.
 
 CLI does deterministic detection. Your agent handles triage and judgment fixes. Each fix category runs on its own git worktree for safe parallel execution.
 
@@ -74,6 +74,7 @@ Or invoke via your agent: just say "desloppify" or "clean up code" and the skill
 | `type-fragmentation` | Duplicate types, complex inline types |
 | `inconsistency` | Mixed naming, mixed exports, unlisted deps |
 | `complexity` | Long functions, deep nesting, many params, nested ternaries |
+| `security-slop` | Hardcoded secrets, SQL injection, hardcoded URLs |
 
 ## How It Works
 
