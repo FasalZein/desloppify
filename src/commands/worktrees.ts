@@ -12,6 +12,7 @@ const CATEGORIES = [
   "type-fragmentation",
   "inconsistency",
   "complexity",
+  "security-slop",
 ];
 
 export default defineCommand({

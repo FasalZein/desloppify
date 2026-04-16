@@ -219,6 +219,79 @@ const RULES: GrepRule[] = [
     tier: 0,
     message: "Nested ternary chain — use if/else for readability",
   },
+  // security-slop: hardcoded secrets
+  {
+    id: "HARDCODED_SECRET",
+    pattern: /\b(password|secret|api_key|apiKey|token|auth)\s*[:=]\s*["'][^"']{8,}["']/,
+    category: "security-slop",
+    severity: "CRITICAL",
+    tier: 0,
+    message: "Hardcoded secret — move to environment variable",
+  },
+  // security-slop: hardcoded localhost/URLs
+  {
+    id: "HARDCODED_URL",
+    pattern: /["'](https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0):\d+|https?:\/\/api\.\w+\.com)[^"']*["']/,
+    category: "security-slop",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Hardcoded URL — use environment variable or config",
+  },
+  // security-slop: SQL string concatenation
+  {
+    id: "SQL_INJECTION",
+    pattern: /["'`](SELECT|INSERT|UPDATE|DELETE)\s+.*["'`]\s*\+\s*\w+/i,
+    category: "security-slop",
+    severity: "CRITICAL",
+    tier: 0,
+    message: "SQL string concatenation — use parameterized queries",
+  },
+  // ai-slop: commented-out code blocks (3+ lines detected via preceding comment)
+  {
+    id: "COMMENTED_CODE_BLOCK",
+    pattern: /^\s*(\/\/|#)\s*(const|let|var|function|class|import|export|if|for|while|return|async)\b/,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 1,
+    message: "Commented-out code — delete it, git remembers",
+    fix: "Remove the commented-out code block",
+  },
+  // ai-slop: placeholder values shipped
+  {
+    id: "PLACEHOLDER_VALUE",
+    pattern: /["'](your-api-key-here|CHANGE_ME|TODO:\s*replace|example\.com|xxx|changeme|replace-me)["']/i,
+    category: "ai-slop",
+    severity: "HIGH",
+    tier: 0,
+    message: "Placeholder value shipped in code — replace with real value",
+  },
+  // inconsistency: mixed require and import
+  {
+    id: "MIXED_IMPORT_STYLE",
+    pattern: /^const\s+\w+\s*=\s*require\s*\(/,
+    category: "inconsistency",
+    severity: "LOW",
+    tier: 0,
+    message: "require() in ESM file — use import instead",
+  },
+  // legacy: callback-style in promise era
+  {
+    id: "CALLBACK_STYLE",
+    pattern: /\bfs\.(readFile|writeFile|mkdir|readdir|stat|unlink|rename|access)\s*\([^)]*,\s*(function|\(err)/,
+    category: "legacy-code",
+    severity: "LOW",
+    tier: 0,
+    message: "Callback-style fs API — use fs.promises or fs/promises",
+  },
+  // defensive: unchecked promise (fire and forget)
+  {
+    id: "UNCHECKED_PROMISE",
+    pattern: /^\s*\w+\.(then|catch)\s*\(\s*\)\s*;?\s*$/,
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Empty .then()/.catch() — handle the promise result",
+  },
 ];
 
 export async function runGrepPatterns(targetPath: string): Promise<Issue[]> {

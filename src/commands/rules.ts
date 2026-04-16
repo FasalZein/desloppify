@@ -75,6 +75,24 @@ const RULES = [
   { id: "DEEP_NESTING", category: "complexity", tier: 0, tool: "grep", desc: "Conditional nesting 3+ levels" },
   { id: "MANY_PARAMS", category: "complexity", tier: 0, tool: "ast-grep", desc: "Function with 5+ parameters" },
   { id: "NESTED_TERNARY", category: "complexity", tier: 0, tool: "grep", desc: "Nested ternary chain" },
+
+  // security-slop
+  { id: "HARDCODED_SECRET", category: "security-slop", tier: 0, tool: "grep", desc: "Hardcoded password/secret/key/token" },
+  { id: "HARDCODED_URL", category: "security-slop", tier: 0, tool: "grep", desc: "Hardcoded localhost or API URL" },
+  { id: "SQL_INJECTION", category: "security-slop", tier: 0, tool: "grep", desc: "SQL string concatenation — use params" },
+
+  // additional ai-slop
+  { id: "COMMENTED_CODE_BLOCK", category: "ai-slop", tier: 1, tool: "grep", desc: "Commented-out code line" },
+  { id: "PLACEHOLDER_VALUE", category: "ai-slop", tier: 0, tool: "grep", desc: "Placeholder value shipped in code" },
+
+  // additional inconsistency
+  { id: "MIXED_IMPORT_STYLE", category: "inconsistency", tier: 0, tool: "grep", desc: "require() in ESM — use import" },
+
+  // additional legacy
+  { id: "CALLBACK_STYLE", category: "legacy-code", tier: 0, tool: "grep", desc: "Callback-style API — use promises" },
+
+  // additional defensive
+  { id: "UNCHECKED_PROMISE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Empty .then()/.catch()" },
 ];
 
 export default defineCommand({

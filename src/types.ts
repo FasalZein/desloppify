@@ -11,7 +11,8 @@ export type Category =
   | "legacy-code"
   | "type-fragmentation"
   | "inconsistency"
-  | "complexity";
+  | "complexity"
+  | "security-slop";
 
 export interface Issue {
   id: string;
