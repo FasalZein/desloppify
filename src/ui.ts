@@ -171,13 +171,15 @@ export function showTools(tools: Record<string, boolean>) {
 export function showScore(score: number, grade: string, total: number, penalty: number) {
   const gradeCol = score >= 85 ? t.green : score >= 50 ? t.gold : t.rust;
   const filled = Math.max(1, Math.round(score / 10));
-  const empty = Math.max(0, 10 - filled);
-  const bar = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(empty)}${t.reset}`;
-  const status = total === 0
-    ? `${t.green}Clean run${t.reset}`
-    : total <= 5
-      ? `${t.gold}Minor cleanup${t.reset}`
-      : `${t.rust}Needs attention${t.reset}`;
+  const unfilled = Math.max(0, 10 - filled);
+  const bar = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(unfilled)}${t.reset}`;
+
+  let status = `${t.rust}Needs attention${t.reset}`;
+  if (total === 0) {
+    status = `${t.green}Clean run${t.reset}`;
+  } else if (total <= 5) {
+    status = `${t.gold}Minor cleanup${t.reset}`;
+  }
 
   const scoreText = [
     `${gradeCol}${t.bold}Current score: ${score}/100  Grade: ${grade}${t.reset}`,

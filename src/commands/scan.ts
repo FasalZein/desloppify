@@ -67,7 +67,12 @@ export default defineCommand({
     const spin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
 
     // Phase 1: Collect files
-    const scopeLabel = args.staged ? "staged files" : args.changed ? "branch changes" : "file tree";
+    let scopeLabel = "file tree";
+    if (args.staged) {
+      scopeLabel = "staged files";
+    } else if (args.changed) {
+      scopeLabel = "branch changes";
+    }
     spin?.start(`Walking ${scopeLabel}...`);
     const files = args.staged
       ? listStagedFiles(targetPath)
