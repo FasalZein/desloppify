@@ -19,7 +19,7 @@ describe("runGrepPatternsFromEntries", () => {
 
   test("detects log-and-rethrow across adjacent lines", () => {
     const issues = runGrepPatternsFromEntries([
-      entry("/repo/src/main.ts", "console.error(error);\nthrow error;"),
+      entry("/repo/src/main.ts", "try {\n  work();\n} catch (error) {\n  console.error(error);\n  throw error;\n}"),
     ]);
 
     expect(issues.map((issue) => issue.id)).toContain("LOG_AND_RETHROW");
@@ -33,12 +33,14 @@ describe("runGrepPatternsFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toContain("UNNECESSARY_INTERMEDIATE");
   });
 
-  test("detects unnecessary useCallback wrappers", () => {
+  test("detects unnecessary memoization wrappers", () => {
     const issues = runGrepPatternsFromEntries([
       entry("/repo/src/main.tsx", "const onClick = use" + "Callback(() => submit(), []);"),
+      entry("/repo/src/view.tsx", "const value = useMemo(() => expensive(), []);"),
     ]);
 
     expect(issues.map((issue) => issue.id)).toContain("UNNECESSARY_USECALLBACK");
+    expect(issues.map((issue) => issue.id)).toContain("USEMEMO_EMPTY_DEPS");
   });
 
   test("detects redundant boolean returns", () => {
@@ -48,6 +50,49 @@ describe("runGrepPatternsFromEntries", () => {
     ]);
 
     expect(issues.filter((issue) => issue.id === "REDUNDANT_BOOLEAN_RETURN")).toHaveLength(2);
+  });
+
+  test("avoids reviewed false positives", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/cache.ts", 'const cacheKey = `${options?.maxResults ?? "default"}:${options?.rerank ?? "default"}`;'),
+      entry("/repo/src/frontmatter.ts", '...(prd?.prdId ? { parent_prd: prd.prdId } : {}),'),
+      entry("/repo/src/summary.ts", 'return [title, scope ? `Scope: ${scope}` : null, target ? `Target: ${target}` : null];'),
+      entry("/repo/src/template.ts", 'return `${priority ? ` | ${priority}` : ""}${tags.length ? ` | ${tags.join(" ")}` : ""}`;'),
+      entry("/repo/src/cli.ts", 'console.log(`Started ${sliceId}`);'),
+      entry("/repo/src/search.ts", 'let useBm25 = false;'),
+      entry("/repo/src/find.ts", 'for (const line of lines) {\n  if (matches(line)) return true;\n}\nreturn false;'),
+      entry("/repo/src/catch.ts", 'try {\n  run();\n} catch (error) {\n  console.error(error);\n  throw error;\n}'),
+      entry("/repo/src/guard.ts", 'if (json) console.log(payload);\nthrow new Error("boom");'),
+      entry("/repo/src/signature.ts", 'export function appendLogEntry(kind: string, title: string, options?: { project?: string; details?: string[] }) {\n  return title;\n}'),
+      entry("/repo/src/real.ts", 'const label = ready ? "done" : pending ? "later" : "never";'),
+    ]);
+
+    expect(issues.filter((issue) => issue.file !== "/repo/src/real.ts").map((issue) => issue.id)).not.toContain("NESTED_TERNARY");
+    expect(issues.map((issue) => issue.id)).not.toContain("ENTRY_EXIT_LOG");
+    expect(issues.map((issue) => issue.id)).not.toContain("NUMERIC_SUFFIX");
+    expect(issues.map((issue) => issue.id)).not.toContain("REDUNDANT_BOOLEAN_RETURN");
+    expect(issues.filter((issue) => issue.id === "LOG_AND_RETHROW")).toHaveLength(1);
+    expect(issues.filter((issue) => issue.id === "NESTED_TERNARY")).toHaveLength(1);
+  });
+
+  test("detects hedging comments and fake loading delays", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/main.ts", "// this should be fine\nconst ok = true;"),
+      entry("/repo/src/page.ts", "await new Promise((resolve) => setTimeout(resolve, 300));"),
+    ]);
+
+    expect(issues.map((issue) => issue.id)).toContain("HEDGING_COMMENT");
+    expect(issues.map((issue) => issue.id)).toContain("FAKE_LOADING_DELAY");
+  });
+
+  test("ignores decorative banner blocks but still flags lone separators", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/banners.ts", "// ====================\n// Streaming Handler\n// Handles SSE streaming\n// ===================="),
+      entry("/repo/src/lone.ts", "// ====================\nconst value = 1;"),
+    ]);
+
+    expect(issues.filter((issue) => issue.id === "BANNER_COMMENT")).toHaveLength(1);
+    expect(issues.find((issue) => issue.id === "BANNER_COMMENT")?.file).toBe("/repo/src/lone.ts");
   });
 
   test("does not self-match metadata", () => {

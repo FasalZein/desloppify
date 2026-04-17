@@ -303,8 +303,14 @@ export function runFileMetricsFromEntries(entries: FileEntry[], options: FileMet
       !hasStarReexport &&
       !isRouteRegistrarIndex
     );
+    const isPublicApiBarrel = Boolean(
+      totalExports > 0 &&
+      barrelExports / totalExports > 0.7 &&
+      !hasStarReexport &&
+      (/\/src\/[^/]+\/index\.(ts|tsx|js|jsx)$/.test(filePath) || /(^|\/)(index|system)\.(ts|tsx|js|jsx)$/.test(filePath))
+    );
 
-    if (totalExports > 3 && barrelExports / totalExports > 0.7 && !isCuratedPublicIndex) {
+    if (totalExports > 3 && barrelExports / totalExports > 0.7 && !isCuratedPublicIndex && !isPublicApiBarrel) {
       issues.push({
         id: "BARREL_FILE",
         category: "complexity",
@@ -363,7 +369,10 @@ export function runFileMetricsFromEntries(entries: FileEntry[], options: FileMet
       const match = line.match(/(?:import|from)\s+["']([^"']+)["']/);
       if (match?.[1]) importPaths.add(match[1]);
     }
-    if (importPaths.size >= 15 && !isGenerated && !isCuratedPublicIndex && !isRouteRegistrarIndex) {
+    const firstMeaningfulLine = lines.find((line) => line.trim().length > 0) ?? "";
+    const isEntryPointFile = firstMeaningfulLine.startsWith("#!") || /(^|\/)src\/(index|main|cli)\.(ts|js)$/.test(filePath);
+
+    if (importPaths.size >= 15 && !isGenerated && !isCuratedPublicIndex && !isRouteRegistrarIndex && !isEntryPointFile) {
       issues.push({
         id: "IMPORT_HEAVY",
         category: "complexity",

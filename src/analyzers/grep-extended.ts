@@ -88,6 +88,39 @@ const RULES: GrepRule[] = [
     tier: 0,
     message: "async callback in forEach — promises are fire-and-forgotten. Use for...of or Promise.all(map()).",
   },
+  {
+    id: "ASYNC_PROMISE_EXECUTOR",
+    pattern: /new\s+Promise\s*\(\s*async\s*\(/,
+    category: "async-correctness",
+    severity: "HIGH",
+    tier: 0,
+    message: "async Promise executor — use a plain async function or non-async executor with explicit resolve/reject",
+  },
+  {
+    id: "USEEFFECT_ASYNC",
+    pattern: /useEffect\(\s*async\s*\(/,
+    category: "async-correctness",
+    severity: "HIGH",
+    tier: 0,
+    message: "async useEffect callback — wrap the async work in an inner function instead",
+    fileFilter: /\.(tsx|jsx)$/,
+  },
+  {
+    id: "REDUNDANT_RETURN_AWAIT",
+    pattern: /return\s+await\s+\w+\(/,
+    category: "async-correctness",
+    severity: "LOW",
+    tier: 0,
+    message: "return await on a direct promise — return the promise unless you need try/catch semantics",
+  },
+  {
+    id: "BARE_ASYNC_MAP",
+    pattern: /\.map\(\s*async\s/,
+    category: "async-correctness",
+    severity: "HIGH",
+    tier: 0,
+    message: "async map result not obviously awaited — collect with Promise.all(...) or use for...of",
+  },
   // PROMISE_IN_VOID removed — too noisy without type info
   {
     id: "REQUESTS_IN_ASYNC",
@@ -113,6 +146,14 @@ const RULES: GrepRule[] = [
     severity: "MEDIUM",
     tier: 0,
     message: "Mixing .then() with async/await — pick one style",
+  },
+  {
+    id: "JSON_DEEP_CLONE",
+    pattern: /JSON\.parse\(\s*JSON\.stringify\(/,
+    category: "ai-slop",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "JSON stringify/parse deep clone — lossy and slow. Use structuredClone when available.",
   },
 
   // ── runtime-validation ─────────────────────────────────────
@@ -319,6 +360,25 @@ const RULES: GrepRule[] = [
 
 // Remove placeholder/disabled rules
 const ACTIVE_RULES = RULES.filter((r) => r.pattern.source !== "^$");
+const KNOWN_NUMERIC_SUFFIX_TERMS = /\b\w*(?:bm25|md5|sha(?:1|224|256|384|512)|base64|http[23]|ipv[46]|oauth2|x(?:86|64)|utf(?:8|16|32)|argon2|pbkdf2|ripemd160|hmac256|blake2[bs]?|chacha20|aes(?:128|192|256)|sm2|sumx2)\b/i;
+
+function isTestOrScriptFile(filePath: string): boolean {
+  return /(\.test\.|\.spec\.|__tests__|\/tests\/|\/scripts\/|(^|\/)test-[^/]+\.)/.test(filePath);
+}
+
+function hasNearbyFetch(lines: string[], index: number): boolean {
+  for (let i = Math.max(0, index - 2); i <= index; i++) {
+    const line = lines[i] ?? "";
+    if (/Bun\.file\s*\(/.test(line)) return false;
+    if (/\bfetch\s*\(/.test(line)) return true;
+  }
+  return false;
+}
+
+function isPromiseWrappedAsyncMap(lines: string[], index: number): boolean {
+  const window = lines.slice(Math.max(0, index - 3), Math.min(lines.length, index + 3)).join("\n");
+  return /Promise\.(all|allSettled|race|any)\s*\([\s\S]*\.map\(\s*async\s/.test(window);
+}
 
 function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Issue[] {
   const found: Issue[] = [];
@@ -327,6 +387,9 @@ function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Is
     for (const rule of rules) {
       if (!rule.pattern.test(line)) continue;
       if (isLineIgnored(line, rule.id)) continue;
+      if (rule.id === "BARE_ASYNC_MAP" && isPromiseWrappedAsyncMap(lines, i)) continue;
+      if (rule.id === "FETCH_RESPONSE_CAST" && !hasNearbyFetch(lines, i)) continue;
+      if (rule.id === "NUMERIC_SUFFIX" && (isTestOrScriptFile(filePath) || KNOWN_NUMERIC_SUFFIX_TERMS.test(line))) continue;
       found.push({
         id: rule.id,
         category: rule.category,

@@ -37,6 +37,7 @@ const RULES = [
   { id: "PRINT_STATEMENT", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "Python print() in production code" },
   { id: "PASS_STUB", category: "ai-slop", tier: 0, tool: "ast-grep", desc: "Python pass-only function body (stub)" },
   { id: "DEBUG_BREAKPOINT", category: "ai-slop", tier: 1, tool: "grep", desc: "debugger/breakpoint/pdb.set_trace/dbg! left in code" },
+  { id: "FAKE_LOADING_DELAY", category: "ai-slop", tier: 1, tool: "grep", desc: "Artificial loading delay shipped in production code" },
   { id: "UNNECESSARY_USECALLBACK", category: "ai-slop", tier: 1, tool: "grep", desc: "useCallback with empty deps and no captures" },
   { id: "REDUNDANT_BOOLEAN_RETURN", category: "ai-slop", tier: 1, tool: "grep", desc: "if/else returns boolean literals — return condition directly" },
 
@@ -144,6 +145,10 @@ const RULES = [
 
   // async-correctness
   { id: "FOREACH_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "async in forEach — promises fire-and-forget" },
+  { id: "ASYNC_PROMISE_EXECUTOR", category: "async-correctness", tier: 0, tool: "grep", desc: "async Promise executor — avoid async inside new Promise" },
+  { id: "USEEFFECT_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "async useEffect callback — wrap async work inside" },
+  { id: "REDUNDANT_RETURN_AWAIT", category: "async-correctness", tier: 0, tool: "grep", desc: "return await on direct promise" },
+  { id: "BARE_ASYNC_MAP", category: "async-correctness", tier: 0, tool: "grep", desc: "async map result not obviously awaited" },
   { id: "REQUESTS_IN_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "Blocking requests in async — use httpx" },
   { id: "SEQUENTIAL_AWAIT", category: "async-correctness", tier: 0, tool: "grep", desc: "Sequential awaits — use Promise.all()" },
   { id: "CALLBACK_PROMISE_MIX", category: "async-correctness", tier: 0, tool: "grep", desc: "Mixing .then() with async/await" },
@@ -168,6 +173,7 @@ const RULES = [
   // additional security
   { id: "EVAL_EXEC", category: "security-slop", tier: 0, tool: "grep", desc: "eval()/exec() — arbitrary code execution" },
   { id: "PICKLE_LOADS", category: "security-slop", tier: 0, tool: "grep", desc: "pickle.load — RCE on untrusted data" },
+  { id: "JSON_DEEP_CLONE", category: "ai-slop", tier: 0, tool: "grep", desc: "JSON stringify/parse deep clone" },
 
   // additional python
   { id: "MUTABLE_DEFAULT", category: "defensive-programming", tier: 0, tool: "grep", desc: "Mutable default argument — shared state" },

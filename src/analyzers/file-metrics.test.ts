@@ -89,4 +89,52 @@ describe("runFileMetricsFromEntries", () => {
 
     expect(issues.some((issue) => issue.id === "STAR_REEXPORT")).toBe(true);
   });
+
+  test("avoids public API barrel false positives", () => {
+    const issues = runFileMetricsFromEntries([
+      entry(
+        "/repo/src/session/index.ts",
+        [
+          'export { createSession } from "./create";',
+          'export { listSessions } from "./list";',
+          'export { updateSession } from "./update";',
+          'export { deleteSession } from "./delete";',
+          'export const SESSION_KIND = "user";',
+        ].join("\n")
+      ),
+      entry(
+        "/repo/src/system.ts",
+        [
+          'export { start } from "./start";',
+          'export { stop } from "./stop";',
+          'export { status } from "./status";',
+          'export { restart } from "./restart";',
+        ].join("\n")
+      ),
+    ]);
+
+    expect(issues.some((issue) => issue.id === "BARREL_FILE")).toBe(false);
+  });
+
+  test("avoids import-heavy composition roots but still flags regular files", () => {
+    const entrypoint = entry(
+      "/repo/src/index.ts",
+      [
+        ...Array.from({ length: 16 }, (_, i) => `import mod${i} from "./dep-${i}";`),
+        "export const run = () => true;",
+      ].join("\n")
+    );
+    const regular = entry(
+      "/repo/src/feature.ts",
+      [
+        ...Array.from({ length: 16 }, (_, i) => `import mod${i} from "./dep-${i}";`),
+        "export const run = () => true;",
+      ].join("\n")
+    );
+
+    const issues = runFileMetricsFromEntries([entrypoint, regular]);
+
+    expect(issues.filter((issue) => issue.id === "IMPORT_HEAVY")).toHaveLength(1);
+    expect(issues.find((issue) => issue.id === "IMPORT_HEAVY")?.file).toBe("/repo/src/feature.ts");
+  });
 });
