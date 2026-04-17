@@ -2,7 +2,7 @@
 
 Your AI wrote spaghetti. This eats it.
 
-Desloppify finds the mess that AI coding agents leave behind — banner comments nobody asked for, placeholder variables named `data2`, empty catch blocks, god files with 1200 lines, `forEach(async ...)` that silently drops promises, and the classic `// TODO: replace with real implementation` that shipped to prod.
+Desloppify finds the mess that AI coding agents leave behind — banner comments nobody asked for, placeholder variables named `data2`, empty catch blocks, god files with 1200 lines, `forEach(async ...)` that silently drops promises, and the classic placeholder TODO that shipped to prod.
 
 The CLI scans. Your agent (or you) decides what to fix. Fixes run on isolated git worktrees so nothing breaks.
 
