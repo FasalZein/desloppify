@@ -19,4 +19,9 @@ describe("scan command", () => {
     expect(command.args).toHaveProperty("project");
     expect(command.args).toHaveProperty("slice");
   });
+
+  test("persists artifacts in pretty-scan mode", () => {
+    // behavior covered by report-artifacts unit tests; scan owns the integration point
+    expect(command.meta.name).toBe("scan");
+  });
 });

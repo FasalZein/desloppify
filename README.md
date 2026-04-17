@@ -77,7 +77,7 @@ The CLI handles detection deterministically. The agent handles judgment — is t
 ## Commands
 
 ```bash
-desloppify scan [path] --pack js-ts             # detect issues with explicit pack selection
+desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
 desloppify scan [path] --wiki --pack js-ts      # wiki-forge review JSON
 desloppify scan [path] --handoff --pack js-ts   # compact markdown handoff
@@ -107,6 +107,17 @@ This installs repo-local hooks via `.githooks/`:
 
 Both hooks scan only the diff on your branch, not the whole repo, and block only on `HIGH`/`CRITICAL` findings.
 Set `DESLOPPIFY_PACK=<pack>` if you need a different pack in hook runs.
+
+## Saved report artifacts
+
+A normal `desloppify scan ...` run writes artifacts to:
+
+- `.desloppify/reports/latest.findings.json`
+- `.desloppify/reports/latest.report.md`
+- `.desloppify/reports/latest.wiki.json`
+- `.desloppify/reports/latest.handoff.md`
+
+The CLI also prints these paths after the scan so agents and humans know exactly what to read next.
 
 ## Scoring
 

@@ -56,7 +56,8 @@ brew install ast-grep                     # structural pattern matching
 ## Step 1: Scan
 
 ```bash
-desloppify scan [path] --pack js-ts               # terminal report
+desloppify scan [path] --pack js-ts               # terminal report + saved local artifacts
+# artifacts are written under .desloppify/reports/
 desloppify scan [path] --json --pack js-ts        # normalized findings JSON
 desloppify scan [path] --wiki --pack js-ts        # wiki-forge review JSON
 desloppify scan [path] --handoff --pack js-ts     # compact markdown handoff

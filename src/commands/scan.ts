@@ -11,6 +11,7 @@ import { buildScanReport } from "../report";
 import { getPackExternalTasks, getPackMeta, resolvePackSelection } from "../packs";
 import { runPackInternalAnalyzers } from "../packs";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
+import { saveScanArtifacts } from "../report-artifacts";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues,
@@ -108,6 +109,14 @@ export default defineCommand({
     const elapsed = performance.now() - t0;
 
     const report = buildScanReport(targetPath, tools, filtered, pack, architecture);
+    const wikiReport = buildWikiReport(report, {
+      project: args.project,
+      sliceId: args.slice,
+      prdId: args.prd,
+      featureId: args.feature,
+    });
+    const reportMarkdown = formatMarkdown(report);
+    const handoffMarkdown = formatWikiHandoffMarkdown(wikiReport);
 
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
@@ -117,31 +126,22 @@ export default defineCommand({
 
     // ── Wiki JSON output ───────────────────────────────────────
     if (isWiki) {
-      console.log(JSON.stringify(buildWikiReport(report, {
-        project: args.project,
-        sliceId: args.slice,
-        prdId: args.prd,
-        featureId: args.feature,
-      }), null, 2));
+      console.log(JSON.stringify(wikiReport, null, 2));
       process.exit(report.findings.length > 0 ? 1 : 0);
     }
 
     // ── Markdown outputs ───────────────────────────────────────
     if (args.markdown) {
-      console.log(formatMarkdown(report));
+      console.log(reportMarkdown);
       process.exit(filtered.length > 0 ? 1 : 0);
     }
     if (isHandoff) {
-      console.log(formatWikiHandoffMarkdown(buildWikiReport(report, {
-        project: args.project,
-        sliceId: args.slice,
-        prdId: args.prd,
-        featureId: args.feature,
-      })));
+      console.log(handoffMarkdown);
       process.exit(filtered.length > 0 ? 1 : 0);
     }
 
     // ── Pretty terminal output ─────────────────────────────────
+    const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown);
     const { score, grade, penalty } = calculateScore(filtered);
 
     // Score box
@@ -184,6 +184,13 @@ export default defineCommand({
       const groupBy = args["group-by"] === "category" ? "category" : "severity";
       showIssues(filtered, { limit: args.verbose ? Infinity : 10, groupBy });
     }
+
+    p.note([
+      `Findings JSON: ${artifacts.findingsJson}`,
+      `Readable report: ${artifacts.reportMarkdown}`,
+      `Wiki report: ${artifacts.wikiJson}`,
+      `Handoff: ${artifacts.handoffMarkdown}`,
+    ].join("\n"), "Saved reports");
 
     scanOutro(elapsed, entries.length);
     process.exit(filtered.length > 0 ? 1 : 0);
