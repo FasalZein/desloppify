@@ -14,7 +14,7 @@ import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import { saveScanArtifacts } from "../report-artifacts";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
-  showScore, showSeveritySummary, showCategories, showIssues,
+  showScore, showSeveritySummary, showCategories, showIssues, showNextActions,
 } from "../ui";
 
 export default defineCommand({
@@ -191,6 +191,17 @@ export default defineCommand({
       `Wiki report: ${artifacts.wikiJson}`,
       `Handoff: ${artifacts.handoffMarkdown}`,
     ].join("\n"), "Saved reports");
+
+    const nextActions = [
+      `Show the current score again: desloppify score ${args.path} --pack ${pack.name}`,
+      filtered.length > 0
+        ? `Read machine findings: cat ${artifacts.findingsJson}`
+        : `Install repo-local hooks: desloppify install-hooks`,
+      filtered.length > 0
+        ? `Prepare isolated fixes: desloppify worktrees ${args.path}`
+        : `Run a focused diff scan before commit: desloppify scan ${args.path} --staged --pack ${pack.name}`,
+    ];
+    showNextActions(nextActions);
 
     scanOutro(elapsed, entries.length);
     process.exit(filtered.length > 0 ? 1 : 0);

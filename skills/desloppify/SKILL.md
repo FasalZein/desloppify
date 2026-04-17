@@ -20,6 +20,7 @@ CLI detects. You triage and fix. Read the saved artifacts first, then use repo-l
 
 ```bash
 desloppify install-skill                  # runs npx skills add FasalZein/desloppify
+desloppify install-hooks                  # installs repo-local pre-commit / pre-push hooks
 desloppify setup                          # prints the guided first-run setup
 ```
 
@@ -78,6 +79,8 @@ After a normal scan, read these in order:
 2. `.desloppify/reports/latest.report.md`
 3. `.desloppify/reports/latest.wiki.json` or `.desloppify/reports/latest.handoff.md`
 
+Pretty scan mode also shows the current score, grade, and concrete next actions in the terminal.
+
 ## Step 2: Triage
 
 For each category with issues, decide:
@@ -121,6 +124,7 @@ desloppify scan [path]                    # confirm improvement
 |---------|-------------|
 | `desloppify install-skill` | Install the shipped skill via `npx skills add` |
 | `desloppify setup` | Print first-run setup guidance |
+| `desloppify install-hooks` | Install repo-local hooks |
 | `desloppify scan [path] --pack js-ts` | Detect issues, terminal report |
 | `desloppify scan --json --pack js-ts` | Normalized findings JSON |
 | `desloppify scan --markdown --pack js-ts` | Readable markdown report |

@@ -170,13 +170,26 @@ export function showTools(tools: Record<string, boolean>) {
 
 export function showScore(score: number, grade: string, total: number, penalty: number) {
   const gradeCol = score >= 85 ? t.green : score >= 50 ? t.gold : t.rust;
+  const filled = Math.max(1, Math.round(score / 10));
+  const empty = Math.max(0, 10 - filled);
+  const bar = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(empty)}${t.reset}`;
+  const status = total === 0
+    ? `${t.green}Clean run${t.reset}`
+    : total <= 5
+      ? `${t.gold}Minor cleanup${t.reset}`
+      : `${t.rust}Needs attention${t.reset}`;
 
   const scoreText = [
-    `${gradeCol}${t.bold}Score: ${score}/100  Grade: ${grade}${t.reset}`,
+    `${gradeCol}${t.bold}Current score: ${score}/100  Grade: ${grade}${t.reset}`,
+    `${bar}  ${status}`,
     `${t.dim}${total} issues  |  ${Math.round(penalty * 10) / 10} penalty pts${t.reset}`,
   ].join("\n");
 
-  p.note(scoreText, `${t.orange}${t.bold}DESLOPPIFY${t.reset}`);
+  p.note(scoreText, `${t.orange}${t.bold}Current quality${t.reset}`);
+}
+export function showNextActions(actions: string[]) {
+  if (actions.length === 0) return;
+  p.note(actions.map((action, index) => `${index + 1}. ${action}`).join("\n"), `${t.orange}Next actions${t.reset}`);
 }
 
 export function showSeveritySummary(summary: { critical: number; high: number; medium: number; low: number }) {

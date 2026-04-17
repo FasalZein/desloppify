@@ -9,13 +9,16 @@ The CLI scans. Your agent (or you) decides what to fix. Fixes run on isolated gi
 ## Quick start
 
 ```bash
-# 1) Install the CLI
-bunx desloppify setup
-
-# 2) Install the agent skill
+# 1) Install the agent skill
 npx skills add FasalZein/desloppify
 
-# 3) Run the scanner
+# 2) Install repo-local hooks
+bunx desloppify install-hooks
+
+# 3) Print the guided first-run setup
+bunx desloppify setup
+
+# 4) Run the scanner
 bunx desloppify scan . --pack js-ts
 bunx desloppify score . --pack js-ts
 ```
@@ -94,6 +97,8 @@ The current `worktrees` command prints the setup commands; your agent or shell o
 desloppify setup                                # guided first-run setup
 desloppify install-skill --print                # print the canonical skill install command
 desloppify install-skill                        # run npx skills add FasalZein/desloppify
+desloppify install-hooks --print                # print the canonical git hook install command
+desloppify install-hooks                        # install repo-local pre-commit / pre-push hooks
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
 desloppify scan [path] --markdown --pack js-ts  # readable markdown report
@@ -119,7 +124,9 @@ Use `--project`, `--slice`, `--prd`, and `--feature` with `--wiki` or `--handoff
 ## Git hooks for changed files only
 
 ```bash
-bun run setup-hooks
+desloppify install-hooks
+# or, if you want the raw command:
+desloppify install-hooks --print
 ```
 
 This installs repo-local hooks via `.githooks/`:
@@ -140,6 +147,11 @@ A normal `desloppify scan ...` run writes artifacts to:
 - `.desloppify/reports/latest.handoff.md`
 
 The CLI also prints these paths after the scan so agents and humans know exactly what to read next.
+
+Pretty scan mode also shows:
+- the current score / grade
+- issue severity summary
+- concrete next actions
 
 Recommended follow-up order:
 1. `latest.findings.json` for machine decisions

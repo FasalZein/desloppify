@@ -1,11 +1,24 @@
 export const SKILL_INSTALL_COMMAND = ["npx", "skills", "add", "FasalZein/desloppify"] as const;
+export const HOOKS_INSTALL_COMMAND = ["git", "config", "core.hooksPath", ".githooks", "&&", "chmod", "+x", ".githooks/pre-commit", ".githooks/pre-push"] as const;
+
+function formatCommand(parts: readonly string[]) {
+  return parts.join(" ");
+}
 
 export function getSkillInstallCommand(): { command: string; args: string[]; display: string } {
   const [command, ...args] = SKILL_INSTALL_COMMAND;
   return {
     command,
     args: [...args],
-    display: SKILL_INSTALL_COMMAND.join(" "),
+    display: formatCommand(SKILL_INSTALL_COMMAND),
+  };
+}
+
+export function getHooksInstallCommand(): { command: string; args: string[]; display: string } {
+  return {
+    command: formatCommand(HOOKS_INSTALL_COMMAND),
+    args: [],
+    display: formatCommand(HOOKS_INSTALL_COMMAND),
   };
 }
 
@@ -16,11 +29,12 @@ export function formatSetupGuide(): string {
     `   ${install}`,
     "",
     "2. Enable repo-local hooks (inside a repo clone):",
-    "   bun run setup-hooks",
+    "   desloppify install-hooks",
     "",
     "3. Run your first scan:",
     "   bunx desloppify scan . --pack js-ts",
     "",
     "Saved reports appear under .desloppify/reports/ after a normal scan.",
+    "Current score and next-step hints are shown in the terminal summary.",
   ].join("\n");
 }
