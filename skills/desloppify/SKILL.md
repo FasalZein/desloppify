@@ -56,10 +56,12 @@ brew install ast-grep                     # structural pattern matching
 ## Step 1: Scan
 
 ```bash
-desloppify scan [path]                    # terminal report
-desloppify scan [path] --json             # machine-readable for agents
-desloppify scan [path] --category <id>    # single category
-desloppify score [path]                   # weighted quality grade
+desloppify scan [path] --pack js-ts               # terminal report
+desloppify scan [path] --json --pack js-ts        # normalized findings JSON
+desloppify scan [path] --wiki --pack js-ts        # wiki-forge review JSON
+desloppify scan [path] --handoff --pack js-ts     # compact markdown handoff
+desloppify scan [path] --category <id> --pack js-ts
+desloppify score [path] --pack js-ts              # weighted quality grade
 ```
 
 ## Step 2: Triage
@@ -99,10 +101,12 @@ desloppify scan [path]                    # confirm improvement
 
 | Command | What it does |
 |---------|-------------|
-| `desloppify scan [path]` | Detect issues, terminal report |
-| `desloppify scan --json` | Machine-readable JSON output |
-| `desloppify scan --category <id>` | Single category scan |
-| `desloppify score [path]` | Weighted quality score + grade |
+| `desloppify scan [path] --pack js-ts` | Detect issues, terminal report |
+| `desloppify scan --json --pack js-ts` | Normalized findings JSON |
+| `desloppify scan --wiki --pack js-ts` | Wiki-forge review JSON |
+| `desloppify scan --handoff --pack js-ts` | Compact markdown handoff |
+| `desloppify scan --category <id> --pack js-ts` | Single category scan |
+| `desloppify score [path] --pack js-ts` | Weighted quality score + grade |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |

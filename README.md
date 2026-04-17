@@ -10,11 +10,11 @@ The CLI scans. Your agent (or you) decides what to fix. Fixes run on isolated gi
 
 ```bash
 # Run it (requires Bun)
-bunx desloppify scan .
-bunx desloppify score .
+bunx desloppify scan . --pack js-ts
+bunx desloppify score . --pack js-ts
 
 # Via GitHub (while npm is pending)
-bunx github:FasalZein/desloppify scan .
+bunx github:FasalZein/desloppify scan . --pack js-ts
 ```
 
 ## Install as a skill
@@ -77,14 +77,16 @@ The CLI handles detection deterministically. The agent handles judgment — is t
 ## Commands
 
 ```bash
-desloppify scan [path]                           # detect issues (pretty terminal output)
-desloppify scan [path] --json                    # machine-readable for agents
-desloppify scan [path] --category complexity     # single category only
-desloppify scan [path] --architecture modular-monolith
-desloppify scan [path] --staged                  # staged git changes only
-desloppify scan [path] --changed                 # current branch diff only
-desloppify score [path]                          # weighted quality grade (A+ to F)
-desloppify score [path] --architecture modular-monolith
+desloppify scan [path] --pack js-ts             # detect issues with explicit pack selection
+desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
+desloppify scan [path] --wiki --pack js-ts      # wiki-forge review JSON
+desloppify scan [path] --handoff --pack js-ts   # compact markdown handoff
+desloppify scan [path] --category complexity --pack js-ts
+desloppify scan [path] --architecture modular-monolith --pack js-ts
+desloppify scan [path] --staged --pack js-ts    # staged git changes only
+desloppify scan [path] --changed --pack js-ts   # current branch diff only
+desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
+desloppify score [path] --architecture modular-monolith --pack js-ts
 desloppify rules                                 # list all detection rules
 desloppify rules --architecture modular-monolith # active architecture bundle only
 desloppify fix [path] --safe                     # auto-fix safe mechanical issues
@@ -104,6 +106,7 @@ This installs repo-local hooks via `.githooks/`:
 - `pre-push` → scans `--changed`
 
 Both hooks scan only the diff on your branch, not the whole repo, and block only on `HIGH`/`CRITICAL` findings.
+Set `DESLOPPIFY_PACK=<pack>` if you need a different pack in hook runs.
 
 ## Scoring
 
@@ -121,15 +124,15 @@ Optional (auto-detected, improves coverage):
 - `madge` — circular dependency detection (JS/TS)
 - `tsc` — implicit any detection
 
-## Languages
+## Packs
 
-| Language | Coverage |
-|----------|----------|
-| TypeScript / JavaScript | Full coverage — ast-grep + knip + madge + tsc + grep |
-| Python | Structural + supplement — ast-grep + ruff/mypy/vulture |
-| Rust | Structural + supplement — ast-grep + cargo clippy |
-| Go | Supplement — staticcheck |
-| Everything else | Regex pattern matching (34 languages via ast-grep) |
+Desloppify is moving toward a language-agnostic core with explicit first-party packs.
+
+| Pack | Status | Notes |
+|------|--------|-------|
+| `js-ts` | Available | Current JavaScript / TypeScript / React-oriented analyzer bundle |
+
+More packs can be added later without changing the core scan/report contract.
 
 ## False positives
 

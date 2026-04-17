@@ -3,17 +3,11 @@ import { defineCommand } from "citty";
 import { resolve } from "path";
 import type { Issue } from "../types";
 import { detectTools } from "../tools";
-import { runKnip } from "../analyzers/knip";
-import { runMadge } from "../analyzers/madge";
-import { runAstGrep } from "../analyzers/ast-grep";
-import { runTsc } from "../analyzers/tsc";
 import { walkFiles } from "../analyzers/file-walker";
-import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
-import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
-import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
-import { runArchitectureProfileFromEntries } from "../analyzers/architecture-profile";
 import { buildArchitectureSummary, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { createSpinner, humanCategory, scanIntro, scanOutro, showScore, showTools, t } from "../ui";
+import { getPackExternalTasks, resolvePackSelection, runPackInternalAnalyzers } from "../packs";
+import { calculateScore, CATEGORY_WEIGHTS, getGrade, MAX_CATEGORY_PENALTY, SEVERITY_POINTS } from "../scoring";
 
 const VERSION = "0.0.1";
 
@@ -21,97 +15,8 @@ const VERSION = "0.0.1";
  * Scoring system for desloppify.
  *
  * Score = 100 - penalty points.
- * Each issue deducts points based on severity:
- *   CRITICAL: 5 pts
- *   HIGH:     3 pts
- *   MEDIUM:   1 pt
- *   LOW:      0.5 pts
- *
- * Category weights (some categories matter more):
- *   security-slop:           2.0x
- *   weak-types:              1.5x
- *   dead-code:               1.0x
- *   ai-slop:                 0.5x (high volume, low individual impact)
- *   defensive-programming:   1.5x
- *   circular-deps:           1.5x
- *   complexity:              1.0x
- *   duplication:             1.0x
- *   legacy-code:             0.5x
- *   type-fragmentation:      0.5x
- *   inconsistency:           0.5x
- *
- * Grades:
- *   A+: 95-100  |  A: 85-94  |  B: 70-84  |  C: 50-69  |  D: 30-49  |  F: 0-29
+ * See ../scoring.ts for the shared implementation used by commands and reports.
  */
-
-const SEVERITY_POINTS: Record<string, number> = {
-  CRITICAL: 5,
-  HIGH: 3,
-  MEDIUM: 1,
-  LOW: 0.5,
-};
-
-const CATEGORY_WEIGHTS: Record<string, number> = {
-  "security-slop": 2.0,
-  "runtime-validation": 2.0,
-  "async-correctness": 1.5,
-  "weak-types": 1.5,
-  "defensive-programming": 1.5,
-  "circular-deps": 1.5,
-  "test-quality": 1.0,
-  "dead-code": 1.0,
-  "complexity": 1.0,
-  "duplication": 1.0,
-  "accessibility": 1.0,
-  "naming-semantics": 0.5,
-  "ai-slop": 0.5,
-  "legacy-code": 0.5,
-  "type-fragmentation": 0.5,
-  "inconsistency": 0.5,
-};
-
-function getGrade(score: number): string {
-  if (score >= 95) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 70) return "B";
-  if (score >= 50) return "C";
-  if (score >= 30) return "D";
-  return "F";
-}
-
-// A single category can't nuke more than 20% of the score.
-const MAX_CATEGORY_PENALTY = 20;
-
-function calculateScore(issues: Issue[]): {
-  score: number;
-  grade: string;
-  penalty: number;
-  categoryScores: Record<string, { count: number; penalty: number; weight: number }>;
-} {
-  const categoryScores: Record<string, { count: number; penalty: number; weight: number }> = {};
-
-  for (const issue of issues) {
-    const sevPoints = SEVERITY_POINTS[issue.severity] ?? 1;
-    const catWeight = CATEGORY_WEIGHTS[issue.category] ?? 1.0;
-    const penalty = sevPoints * catWeight;
-
-    if (!categoryScores[issue.category]) {
-      categoryScores[issue.category] = { count: 0, penalty: 0, weight: catWeight };
-    }
-    categoryScores[issue.category].count++;
-    categoryScores[issue.category].penalty += penalty;
-  }
-
-  let totalPenalty = 0;
-  for (const data of Object.values(categoryScores)) {
-    totalPenalty += Math.min(data.penalty, MAX_CATEGORY_PENALTY);
-  }
-
-  const score = Math.max(0, Math.min(100, Math.round(100 - totalPenalty)));
-  const grade = getGrade(score);
-
-  return { score, grade, penalty: totalPenalty, categoryScores };
-}
 
 export default defineCommand({
   meta: { name: "score", description: "Calculate a weighted quality score for the codebase" },
@@ -119,6 +24,7 @@ export default defineCommand({
     path: { type: "positional", description: "Path to scan", default: "." },
     json: { type: "boolean", description: "JSON output" },
     architecture: { type: "string", description: "Architecture profile (e.g. modular-monolith)" },
+    pack: { type: "string", description: "Rule pack (e.g. js-ts)" },
   },
   async run({ args }) {
     const targetPath = resolve(args.path);
@@ -127,6 +33,7 @@ export default defineCommand({
     }
 
     const architecture = resolveArchitectureProfileName(args.architecture);
+    const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
     const allIssues: Issue[] = [];
     const isJson = args.json;
@@ -135,6 +42,7 @@ export default defineCommand({
     if (!isJson) {
       scanIntro(VERSION);
       showTools(tools);
+      p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);
     }
 
@@ -144,22 +52,15 @@ export default defineCommand({
     const entries = await walkFiles(targetPath);
 
     spin?.message(`Analyzing ${entries.length} files...`);
-    allIssues.push(...runGrepPatternsFromEntries(entries));
-    allIssues.push(...runGrepExtendedFromEntries(entries));
-    allIssues.push(...runFileMetricsFromEntries(entries, { architecture }));
-    allIssues.push(...runArchitectureProfileFromEntries(entries, { architecture }));
+    allIssues.push(...runPackInternalAnalyzers(pack.name, entries, { architecture }));
     spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
 
-    const tasks: Promise<Issue[]>[] = [];
-    if (tools.knip) tasks.push(runKnip(targetPath));
-    if (tools.madge) tasks.push(runMadge(targetPath));
-    if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));
-    if (tools.tsc) tasks.push(runTsc(targetPath));
+    const tasks = getPackExternalTasks(pack.name, targetPath, tools);
 
     if (tasks.length > 0) {
       const extSpin = isJson ? null : createSpinner();
       extSpin?.start("Running external analyzers...");
-      const results = await Promise.all(tasks);
+      const results = await Promise.all(tasks.map((task) => task.promise));
       let extCount = 0;
       for (const issues of results) {
         extCount += issues.length;
@@ -176,6 +77,7 @@ export default defineCommand({
       console.log(JSON.stringify({
         score,
         grade,
+        pack,
         architecture: architectureSummary,
         totalIssues: allIssues.length,
         totalPenalty: Math.round(penalty * 10) / 10,

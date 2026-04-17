@@ -1,15 +1,9 @@
 #!/bin/sh
 set -eu
 
-printf '\n[desloppify] scanning current branch changes...\n'
-OUTPUT=$(bun src/cli.ts scan . --changed --json || true)
+PACK=${DESLOPPIFY_PACK:-js-ts}
+
+printf '\n[desloppify] scanning current branch changes with pack %s...\n' "$PACK"
+OUTPUT=$(bun src/cli.ts scan . --changed --json --pack "$PACK" || true)
 printf '%s\n' "$OUTPUT"
-printf '%s' "$OUTPUT" | bun -e '
-const input = await new Response(Bun.stdin.stream()).text();
-const report = JSON.parse(input);
-const blocking = report.issues.filter((issue) => issue.severity === "CRITICAL" || issue.severity === "HIGH");
-if (blocking.length > 0) {
-  console.error(`\n[desloppify] blocking push: ${blocking.length} high/critical issue(s) in branch changes`);
-  process.exit(1);
-}
-'
+printf '%s' "$OUTPUT" | bun src/hook-gate.ts push

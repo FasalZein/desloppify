@@ -1,20 +1,16 @@
 import { defineCommand } from "citty";
 import { resolve } from "path";
-import type { Issue, ScanReport, ToolStatus, Category, CategorySummary } from "../types";
+import type { Issue, ScanReport } from "../types";
 import { detectTools } from "../tools";
-import { runKnip } from "../analyzers/knip";
-import { runMadge } from "../analyzers/madge";
-import { runAstGrep } from "../analyzers/ast-grep";
-import { runTsc } from "../analyzers/tsc";
 import { readFiles, walkFiles } from "../analyzers/file-walker";
-import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
-import { runFileMetricsFromEntries } from "../analyzers/file-metrics";
-import { runGrepExtendedFromEntries } from "../analyzers/grep-extended";
-import { runArchitectureProfileFromEntries } from "../analyzers/architecture-profile";
 import * as p from "@clack/prompts";
 import { buildArchitectureSummary, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { listChangedFiles, listStagedFiles } from "../changed-files";
 import { calculateScore } from "./score";
+import { buildScanReport } from "../report";
+import { getPackExternalTasks, getPackMeta, resolvePackSelection } from "../packs";
+import { runPackInternalAnalyzers } from "../packs";
+import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues,
@@ -27,11 +23,18 @@ export default defineCommand({
     category: { type: "string", description: "Scan single category only" },
     json: { type: "boolean", description: "Machine-readable JSON output" },
     markdown: { type: "boolean", description: "Markdown report output" },
+    wiki: { type: "boolean", description: "Wiki-forge JSON review output" },
+    handoff: { type: "boolean", description: "Compact Markdown handoff output" },
     verbose: { type: "boolean", description: "Show all issues (no limit)" },
     architecture: { type: "string", description: "Architecture profile (e.g. modular-monolith)" },
+    pack: { type: "string", description: "Rule pack (e.g. js-ts)" },
     staged: { type: "boolean", description: "Scan staged git changes only" },
     changed: { type: "boolean", description: "Scan current branch diff only" },
     base: { type: "string", description: "Base ref for --changed" },
+    project: { type: "string", description: "Wiki project name for wiki-native output" },
+    slice: { type: "string", description: "Slice ID for wiki-native output" },
+    prd: { type: "string", description: "PRD ID for wiki-native output" },
+    feature: { type: "string", description: "Feature ID for wiki-native output" },
     "group-by": { type: "string", description: "Group issues by: severity (default) or category" },
   },
   async run({ args }) {
@@ -44,19 +47,23 @@ export default defineCommand({
     }
 
     const architecture = resolveArchitectureProfileName(args.architecture);
+    const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
     const allIssues: Issue[] = [];
     const isJson = args.json;
+    const isWiki = args.wiki;
+    const isHandoff = args.handoff;
     const isPartialScan = Boolean(args.staged || args.changed);
     const t0 = performance.now();
 
-    if (!isJson && !args.markdown) {
+    if (!isJson && !isWiki && !isHandoff && !args.markdown) {
       scanIntro("0.0.1");
       showTools(tools);
+      p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);
     }
 
-    const spin = (!isJson && !args.markdown) ? createSpinner() : null;
+    const spin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
 
     // Phase 1: Collect files
     const scopeLabel = args.staged ? "staged files" : args.changed ? "branch changes" : "file tree";
@@ -70,32 +77,17 @@ export default defineCommand({
 
     // Phase 2: Run internal analyzers
     spin?.message(`Analyzing ${entries.length} files...`);
-    allIssues.push(...runGrepPatternsFromEntries(entries));
-    allIssues.push(...runGrepExtendedFromEntries(entries));
-    allIssues.push(...runFileMetricsFromEntries(entries, { architecture }));
-    allIssues.push(...runArchitectureProfileFromEntries(entries, { architecture }));
+    allIssues.push(...runPackInternalAnalyzers(pack.name, entries, { architecture }));
     spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
 
     // Phase 3: Run external tool analyzers
-    const tasks: { name: string; promise: Promise<Issue[]> }[] = [];
-
-    if (!isPartialScan) {
-      if (tools.knip && (!args.category || args.category === "dead-code")) {
-        tasks.push({ name: "knip", promise: runKnip(targetPath) });
-      }
-      if (tools.madge && (!args.category || args.category === "circular-deps")) {
-        tasks.push({ name: "madge", promise: runMadge(targetPath) });
-      }
-      if (tools["ast-grep"]) {
-        tasks.push({ name: "ast-grep", promise: runAstGrep(targetPath) });
-      }
-      if (tools.tsc && (!args.category || args.category === "weak-types")) {
-        tasks.push({ name: "tsc", promise: runTsc(targetPath) });
-      }
-    }
+    const tasks = getPackExternalTasks(pack.name, targetPath, tools, {
+      category: args.category,
+      partial: isPartialScan,
+    });
 
     if (tasks.length > 0) {
-      const extSpin = (!isJson && !args.markdown) ? createSpinner() : null;
+      const extSpin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
       extSpin?.start(`Running ${tasks.map((t) => t.name).join(", ")}...`);
       const results = await Promise.all(tasks.map((t) => t.promise));
       let extCount = 0;
@@ -104,7 +96,7 @@ export default defineCommand({
         allIssues.push(...issues);
       }
       extSpin?.stop(`External tools done — ${extCount} additional issues`);
-    } else if (isPartialScan && !isJson && !args.markdown) {
+    } else if (isPartialScan && !isJson && !isWiki && !isHandoff && !args.markdown) {
       p.log.info("Partial scan mode skips whole-project analyzers (knip, madge, ast-grep, tsc)");
     }
 
@@ -115,16 +107,37 @@ export default defineCommand({
 
     const elapsed = performance.now() - t0;
 
+    const report = buildScanReport(targetPath, tools, filtered, pack, architecture);
+
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
-      const report = buildReport(targetPath, tools, filtered, architecture);
       console.log(JSON.stringify(report, null, 2));
-      process.exit(report.issues.length > 0 ? 1 : 0);
+      process.exit(report.findings.length > 0 ? 1 : 0);
     }
 
-    // ── Markdown output ────────────────────────────────────────
+    // ── Wiki JSON output ───────────────────────────────────────
+    if (isWiki) {
+      console.log(JSON.stringify(buildWikiReport(report, {
+        project: args.project,
+        sliceId: args.slice,
+        prdId: args.prd,
+        featureId: args.feature,
+      }), null, 2));
+      process.exit(report.findings.length > 0 ? 1 : 0);
+    }
+
+    // ── Markdown outputs ───────────────────────────────────────
     if (args.markdown) {
-      console.log(formatMarkdown(buildReport(targetPath, tools, filtered, architecture)));
+      console.log(formatMarkdown(report));
+      process.exit(filtered.length > 0 ? 1 : 0);
+    }
+    if (isHandoff) {
+      console.log(formatWikiHandoffMarkdown(buildWikiReport(report, {
+        project: args.project,
+        sliceId: args.slice,
+        prdId: args.prd,
+        featureId: args.feature,
+      })));
       process.exit(filtered.length > 0 ? 1 : 0);
     }
 
@@ -158,6 +171,7 @@ export default defineCommand({
         .map(([id, count]) => `${id}: ${count}`)
         .join("\n");
       p.note([
+        `Pack: ${getPackMeta(pack.name).name}`,
         `Profile: ${architectureSummary.profile}`,
         `Fit: ${architectureSummary.fitScore}/100`,
         topViolations ? `Top violations:\n${topViolations}` : "Top violations: none",
@@ -176,41 +190,12 @@ export default defineCommand({
   },
 });
 
-function buildReport(
-  path: string,
-  tools: ToolStatus,
-  issues: Issue[],
-  architecture?: string
-): ScanReport {
-  const summary = { critical: 0, high: 0, medium: 0, low: 0 };
-  const categories: Partial<Record<Category, CategorySummary>> = {};
-
-  for (const issue of issues) {
-    summary[issue.severity.toLowerCase() as keyof typeof summary]++;
-    if (!categories[issue.category]) {
-      categories[issue.category] = { count: 0, fixable: 0 };
-    }
-    categories[issue.category]!.count++;
-    if (issue.tier > 0) categories[issue.category]!.fixable++;
-  }
-
-  return {
-    version: "0.0.1",
-    path,
-    architecture: buildArchitectureSummary(architecture, issues),
-    tools,
-    score: Math.max(0, 100 - issues.length * 2),
-    summary,
-    categories,
-    issues,
-  };
-}
-
 function formatMarkdown(report: ScanReport): string {
   const lines: string[] = [
     "# Desloppify Report",
     "",
-    `**Path:** ${report.path}`,
+    `**Path:** ${report.scan.path}`,
+    `**Pack:** ${report.scan.pack.name}`,
     report.architecture ? `**Architecture:** ${report.architecture.profile} (${report.architecture.fitScore}/100)` : "",
     "",
     "## Summary",
@@ -233,12 +218,16 @@ function formatMarkdown(report: ScanReport): string {
   ];
 
   for (const sev of ["CRITICAL", "HIGH", "MEDIUM", "LOW"]) {
-    const sevIssues = report.issues.filter((i) => i.severity === sev);
-    if (sevIssues.length === 0) continue;
+    const sevFindings = report.findings.filter((finding) => finding.severity === sev);
+    if (sevFindings.length === 0) continue;
     lines.push(`### ${sev}`, "");
-    for (const issue of sevIssues) {
-      lines.push(`- **${issue.id}** \`${issue.file}:${issue.line}\` — ${issue.message}`);
-      if (issue.fix) lines.push(`  - Fix: ${issue.fix}`);
+    for (const finding of sevFindings) {
+      const location = finding.locations[finding.primary_location_index] ?? finding.locations[0] ?? {
+        path: "<unknown>",
+        range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } },
+      };
+      lines.push(`- **${finding.rule_id}** \`${location.path}:${location.range.start.line}\` — ${finding.message}`);
+      if (finding.fixes?.[0]?.description) lines.push(`  - Fix: ${finding.fixes[0].description}`);
     }
     lines.push("");
   }

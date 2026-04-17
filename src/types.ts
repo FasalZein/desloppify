@@ -1,3 +1,10 @@
+export type PackName = "js-ts";
+
+export interface PackSelection {
+  name: PackName;
+  explicit: boolean;
+}
+
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 export type Tier = 1 | 2 | 3 | 0; // 0 = flag-only
 
@@ -32,6 +39,7 @@ export interface Issue {
 }
 
 export interface ToolStatus {
+  [key: string]: boolean;
   knip: boolean;
   madge: boolean;
   "ast-grep": boolean;
@@ -45,18 +53,68 @@ export interface CategorySummary {
   fixable: number;
 }
 
-export interface ScanReport {
-  version: string;
+export interface RuleDefinition {
+  id: string;
+  name: string;
+  category: Category;
+  defaultSeverity: Severity;
+  tool: string;
+  shortDescription: string;
+}
+
+export interface FindingPosition {
+  line: number;
+  column: number;
+}
+
+export interface FindingLocation {
   path: string;
+  range: {
+    start: FindingPosition;
+    end: FindingPosition;
+  };
+}
+
+export interface FindingFix {
+  description: string;
+}
+
+export interface Finding {
+  id: string;
+  rule_id: string;
+  level: "error" | "warning" | "note";
+  severity: Severity;
+  category: Category;
+  message: string;
+  tool: string;
+  locations: FindingLocation[];
+  primary_location_index: number;
+  fingerprints: {
+    primary: string;
+    partial?: Record<string, string>;
+  };
+  fixes?: FindingFix[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface ScanReport {
+  schema_version: string;
+  scan: {
+    version: string;
+    path: string;
+    generatedAt: string;
+    pack: PackSelection;
+  };
   architecture?: {
     profile: string;
     fitScore: number;
     violations: Record<string, number>;
-    exemptionsApplied: string[];
+    exemptionsApplied: readonly string[];
   };
   tools: ToolStatus;
   score: number;
   summary: { critical: number; high: number; medium: number; low: number };
   categories: Partial<Record<Category, CategorySummary>>;
-  issues: Issue[];
+  rules: Record<string, RuleDefinition>;
+  findings: Finding[];
 }
