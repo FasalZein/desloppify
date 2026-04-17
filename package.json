@@ -1,6 +1,6 @@
 {
   "name": "desloppify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Your AI wrote spaghetti. This eats it. The definitive AI slop detector for any codebase.",
   "type": "module",
   "bin": {

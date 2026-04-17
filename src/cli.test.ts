@@ -9,7 +9,7 @@ describe("cli entrypoints", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString().trim()).toBe("1.0.0");
+    expect(result.stdout.toString().trim()).toBe("1.0.1");
   });
 
   test("prints version from bin script", () => {
@@ -20,6 +20,6 @@ describe("cli entrypoints", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString().trim()).toBe("1.0.0");
+    expect(result.stdout.toString().trim()).toBe("1.0.1");
   });
 });
