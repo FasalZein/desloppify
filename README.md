@@ -9,12 +9,15 @@ The CLI scans. Your agent (or you) decides what to fix. Fixes run on isolated gi
 ## Quick start
 
 ```bash
-# Run it (requires Bun)
+# 1) Install the agent skill
+npx skills add FasalZein/desloppify
+
+# 2) Print the guided first-run setup
+bunx desloppify setup
+
+# 3) Run the scanner
 bunx desloppify scan . --pack js-ts
 bunx desloppify score . --pack js-ts
-
-# Via GitHub (while npm is pending)
-bunx github:FasalZein/desloppify scan . --pack js-ts
 ```
 
 ## Install as a skill
@@ -22,7 +25,16 @@ bunx github:FasalZein/desloppify scan . --pack js-ts
 Desloppify is skill-driven. Install it as an agent skill and say "desloppify" or "clean up this code" — your agent handles the rest.
 
 ```bash
-# Install the skill (works with any agent that reads SKILL.md)
+# Print the canonical install command
+bunx desloppify install-skill --print
+
+# Run the install directly from the CLI
+bunx desloppify install-skill
+```
+
+The canonical underlying command is:
+
+```bash
 npx skills add FasalZein/desloppify
 ```
 
@@ -67,32 +79,42 @@ CLI scans → finds issues → scores codebase
   ↓
 Agent triages: fix / skip / flag
   ↓
-Fix agents spawn on git worktrees (one per category, parallel)
+You can prepare git worktrees and spawn fix agents in parallel
   ↓
 Merge → re-scan → confirm score improved
 ```
 
 The CLI handles detection deterministically. The agent handles judgment — is this try-catch necessary? Is this duplication intentional? Is this comment helpful or AI narration?
 
+The current `worktrees` command prints the setup commands; your agent or shell orchestrates the actual fix runs.
+
 ## Commands
 
 ```bash
+desloppify setup                                # guided first-run setup
+desloppify install-skill --print                # print the canonical skill install command
+desloppify install-skill                        # run npx skills add FasalZein/desloppify
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
-desloppify scan [path] --wiki --pack js-ts      # wiki-forge review JSON
-desloppify scan [path] --handoff --pack js-ts   # compact markdown handoff
+desloppify scan [path] --markdown --pack js-ts  # readable markdown report
+desloppify scan [path] --wiki --project desloppify --pack js-ts
+desloppify scan [path] --handoff --project desloppify --slice DESLOPPIFY-006 --pack js-ts
 desloppify scan [path] --category complexity --pack js-ts
 desloppify scan [path] --architecture modular-monolith --pack js-ts
 desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --architecture modular-monolith --pack js-ts
-desloppify rules                                 # list all detection rules
+desloppify rules                                # list all detection rules
 desloppify rules --architecture modular-monolith # active architecture bundle only
-desloppify fix [path] --safe                     # auto-fix safe mechanical issues
-desloppify check-tools                           # show available analyzers
-desloppify worktrees [path]                      # print worktree setup commands
+desloppify fix [path] --safe                    # auto-fix safe mechanical issues
+desloppify fix [path] --confident               # add AST-validated fixes
+desloppify fix [path] --all                     # include cross-file fixes
+desloppify check-tools [path] --json            # show available analyzers as JSON
+desloppify worktrees [path]                     # print worktree setup commands
 ```
+
+Use `--project`, `--slice`, `--prd`, and `--feature` with `--wiki` or `--handoff` when you want wiki-native output with concrete project context.
 
 ## Git hooks for changed files only
 

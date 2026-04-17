@@ -8,7 +8,7 @@ description: >
 
 # Desloppify
 
-CLI detects. You triage and fix. Every fix runs on its own git worktree.
+CLI detects. You triage and fix. Use repo-local worktrees when you want isolated parallel fix agents.
 
 ## When to use
 
@@ -16,9 +16,14 @@ CLI detects. You triage and fix. Every fix runs on its own git worktree.
 - After AI-assisted development sprints
 - Before a release or code review
 
-## Step 0: Set up tools
+## Step 0: Install + set up
 
-Before scanning, check what's available and install what's missing:
+```bash
+desloppify install-skill                  # runs npx skills add FasalZein/desloppify
+desloppify setup                          # prints the guided first-run setup
+```
+
+Then check what tooling is available and install what's missing:
 
 ```bash
 desloppify check-tools [path]             # shows project-aware recommendations
@@ -59,8 +64,11 @@ brew install ast-grep                     # structural pattern matching
 desloppify scan [path] --pack js-ts               # terminal report + saved local artifacts
 # artifacts are written under .desloppify/reports/
 desloppify scan [path] --json --pack js-ts        # normalized findings JSON
-desloppify scan [path] --wiki --pack js-ts        # wiki-forge review JSON
-desloppify scan [path] --handoff --pack js-ts     # compact markdown handoff
+desloppify scan [path] --markdown --pack js-ts    # readable markdown report
+desloppify scan [path] --wiki --project <project> --pack js-ts
+                                                 # wiki-forge review JSON with project context
+desloppify scan [path] --handoff --project <project> --slice <slice> --pack js-ts
+                                                 # compact markdown handoff with slice context
 desloppify scan [path] --category <id> --pack js-ts
 desloppify score [path] --pack js-ts              # weighted quality grade
 ```
@@ -76,18 +84,18 @@ You handle judgment. Is this try-catch necessary? Is this duplication intentiona
 
 ## Step 3: Fix
 
-**No worktree = no fix agent.** Every fix sub-agent runs isolated.
+If you want isolated parallel fix agents, prepare worktrees first:
 
 ```bash
 desloppify worktrees [path]               # prints worktree setup commands
 ```
 
-Each sub-agent gets:
-1. Its worktree path
-2. The `--json` scan slice for its category
-3. Run `desloppify fix . --safe` first, then judgment fixes, then re-scan
+Then give each fix agent:
+1. its worktree path
+2. the saved report path or a `--json` scan slice for its category
+3. `desloppify fix . --safe` first, then judgment fixes, then a re-scan
 
-Run all fix agents in parallel using your native sub-agent mechanism.
+The current `worktrees` command prints the setup commands; your agent orchestrates the rest.
 
 ## Step 4: Verify
 
@@ -102,17 +110,20 @@ desloppify scan [path]                    # confirm improvement
 
 | Command | What it does |
 |---------|-------------|
+| `desloppify install-skill` | Install the shipped skill via `npx skills add` |
+| `desloppify setup` | Print first-run setup guidance |
 | `desloppify scan [path] --pack js-ts` | Detect issues, terminal report |
 | `desloppify scan --json --pack js-ts` | Normalized findings JSON |
-| `desloppify scan --wiki --pack js-ts` | Wiki-forge review JSON |
-| `desloppify scan --handoff --pack js-ts` | Compact markdown handoff |
+| `desloppify scan --markdown --pack js-ts` | Readable markdown report |
+| `desloppify scan --wiki --project <project> --pack js-ts` | Wiki-forge review JSON |
+| `desloppify scan --handoff --project <project> --slice <slice> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |
 | `desloppify score [path] --pack js-ts` | Weighted quality score + grade |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |
 | `desloppify rules` | List all detection rules |
-| `desloppify check-tools [path]` | Project-aware tool recommendations |
+| `desloppify check-tools [path] --json` | Project-aware tool recommendations |
 | `desloppify worktrees [path]` | Print worktree setup commands |
 
 ## Safety tiers
@@ -129,3 +140,14 @@ console.log("intentional"); // desloppify:ignore CONSOLE_LOG
 ```
 
 Project-level: `.desloppifyignore` (gitignore syntax).
+
+## Saved reports
+
+A normal `desloppify scan ...` run writes:
+
+- `.desloppify/reports/latest.findings.json`
+- `.desloppify/reports/latest.report.md`
+- `.desloppify/reports/latest.wiki.json`
+- `.desloppify/reports/latest.handoff.md`
+
+Use those paths as the canonical handoff for follow-up agents.
