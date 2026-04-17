@@ -113,7 +113,7 @@ export function buildScanReport(
   return {
     schema_version: "desloppify.findings/v1",
     scan: {
-      version: "0.0.1",
+      version: "1.0.0",
       path,
       generatedAt: new Date().toISOString(),
       pack,

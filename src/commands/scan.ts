@@ -57,7 +57,7 @@ export default defineCommand({
     const t0 = performance.now();
 
     if (!isJson && !isWiki && !isHandoff && !args.markdown) {
-      scanIntro("0.0.1");
+      scanIntro("1.0.0");
       showTools(tools);
       p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);

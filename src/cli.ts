@@ -4,7 +4,7 @@ import { defineCommand, runMain } from "citty";
 const main = defineCommand({
   meta: {
     name: "desloppify",
-    version: "0.0.1",
+    version: "1.0.0",
     description: "Your AI wrote spaghetti. This eats it.\n\nUsage: desloppify <command> [options]\n\nExit codes: scan/score exit 1 when issues are found (useful for CI), 0 when clean.",
   },
   subCommands: {
@@ -17,7 +17,7 @@ const main = defineCommand({
     // Aliases for common patterns
     version: () => Promise.resolve(defineCommand({
       meta: { name: "version", description: "Print version" },
-      run() { console.log("0.0.1"); },
+      run() { console.log("1.0.0"); },
     })),
     help: () => Promise.resolve(defineCommand({
       meta: { name: "help", description: "Show help" },

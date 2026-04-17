@@ -6,7 +6,7 @@ describe("types", () => {
     const report: ScanReport = {
       schema_version: "desloppify.findings/v1",
       scan: {
-        version: "0.0.1",
+        version: "1.0.0",
         path: "/repo",
         generatedAt: "2026-04-16T00:00:00.000Z",
         pack: { name: "js-ts", explicit: true },
