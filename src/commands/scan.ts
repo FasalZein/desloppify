@@ -250,7 +250,8 @@ function formatMarkdown(report: ScanReport): string {
         range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } },
       };
       lines.push(`- **${finding.rule_id}** \`${location.path}:${location.range.start.line}\` — ${finding.message}`);
-      if (finding.fixes?.[0]?.description) lines.push(`  - Fix: ${finding.fixes[0].description}`);
+      const firstFix = finding.fixes?.[0];
+      if (firstFix?.description) lines.push(`  - Fix: ${firstFix.description}`);
     }
     lines.push("");
   }

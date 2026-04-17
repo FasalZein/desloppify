@@ -172,7 +172,7 @@ export function showScore(score: number, grade: string, total: number, penalty: 
   const gradeCol = score >= 85 ? t.green : score >= 50 ? t.gold : t.rust;
   const filled = Math.max(1, Math.round(score / 10));
   const unfilled = Math.max(0, 10 - filled);
-  const bar = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(unfilled)}${t.reset}`;
+  const scoreGauge = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(unfilled)}${t.reset}`;
 
   let status = `${t.rust}Needs attention${t.reset}`;
   if (total === 0) {
@@ -183,7 +183,7 @@ export function showScore(score: number, grade: string, total: number, penalty: 
 
   const scoreText = [
     `${gradeCol}${t.bold}Current score: ${score}/100  Grade: ${grade}${t.reset}`,
-    `${bar}  ${status}`,
+    `${scoreGauge}  ${status}`,
     `${t.dim}${total} issues  |  ${Math.round(penalty * 10) / 10} penalty pts${t.reset}`,
   ].join("\n");
 
