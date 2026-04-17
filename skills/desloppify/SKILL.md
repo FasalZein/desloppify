@@ -8,7 +8,7 @@ description: >
 
 # Desloppify
 
-CLI detects. You triage and fix. Use repo-local worktrees when you want isolated parallel fix agents.
+CLI detects. You triage and fix. Read the saved artifacts first, then use repo-local worktrees when you want isolated parallel fix agents.
 
 ## When to use
 
@@ -67,11 +67,16 @@ desloppify scan [path] --json --pack js-ts        # normalized findings JSON
 desloppify scan [path] --markdown --pack js-ts    # readable markdown report
 desloppify scan [path] --wiki --project <project> --pack js-ts
                                                  # wiki-forge review JSON with project context
-desloppify scan [path] --handoff --project <project> --slice <slice> --pack js-ts
+desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack js-ts
                                                  # compact markdown handoff with slice context
 desloppify scan [path] --category <id> --pack js-ts
 desloppify score [path] --pack js-ts              # weighted quality grade
 ```
+
+After a normal scan, read these in order:
+1. `.desloppify/reports/latest.findings.json`
+2. `.desloppify/reports/latest.report.md`
+3. `.desloppify/reports/latest.wiki.json` or `.desloppify/reports/latest.handoff.md`
 
 ## Step 2: Triage
 
@@ -81,6 +86,10 @@ For each category with issues, decide:
 - **Flag-only** — public API, dynamic access, serialization — never auto-fix
 
 You handle judgment. Is this try-catch necessary? Is this duplication intentional? Is this comment helpful or AI narration?
+
+Important current behavior:
+- `worktrees` prints setup commands; it does not spawn fix agents for you
+- `fix --safe` is the most reliable path today; broader fix tiers are still partial
 
 ## Step 3: Fix
 
@@ -116,7 +125,7 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify scan --json --pack js-ts` | Normalized findings JSON |
 | `desloppify scan --markdown --pack js-ts` | Readable markdown report |
 | `desloppify scan --wiki --project <project> --pack js-ts` | Wiki-forge review JSON |
-| `desloppify scan --handoff --project <project> --slice <slice> --pack js-ts` | Compact markdown handoff |
+| `desloppify scan --handoff --project <project> --slice <slice-id> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |
 | `desloppify score [path] --pack js-ts` | Weighted quality score + grade |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
@@ -151,3 +160,20 @@ A normal `desloppify scan ...` run writes:
 - `.desloppify/reports/latest.handoff.md`
 
 Use those paths as the canonical handoff for follow-up agents.
+
+## Guidance for GOD_FILE findings
+
+Treat `GOD_FILE` as a real refactor signal, not a blind delete/split command.
+Current behavior:
+- files are grouped into role-aware cohorts
+- thresholds are derived from peer files in the same cohort, with static floors as safety rails
+- `GOD_FILE` only emits when a file is both very large for its cohort and has at least one extra complexity signal
+- large files without extra complexity usually downgrade to `LARGE_FILE`
+
+When handling a `GOD_FILE`, inspect why it tripped:
+- too many imports
+- mixed route + DB concerns
+- barrel/export concentration
+- too many HTTP methods in one route file
+- too many `useState` calls
+- generic bucket-file structure

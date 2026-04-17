@@ -9,11 +9,11 @@ The CLI scans. Your agent (or you) decides what to fix. Fixes run on isolated gi
 ## Quick start
 
 ```bash
-# 1) Install the agent skill
-npx skills add FasalZein/desloppify
-
-# 2) Print the guided first-run setup
+# 1) Install the CLI
 bunx desloppify setup
+
+# 2) Install the agent skill
+npx skills add FasalZein/desloppify
 
 # 3) Run the scanner
 bunx desloppify scan . --pack js-ts
@@ -38,7 +38,7 @@ The canonical underlying command is:
 npx skills add FasalZein/desloppify
 ```
 
-The skill teaches your agent the full workflow: scan, triage, spawn fix sub-agents on worktrees, merge, verify. You don't need to memorize commands — the skill drives everything.
+The skill teaches your agent the full workflow: scan, triage, read saved artifacts, prepare isolated fix worktrees when needed, merge, and verify. You don't need to memorize commands — the skill drives everything.
 
 ### Other install methods
 
@@ -97,8 +97,8 @@ desloppify install-skill                        # run npx skills add FasalZein/d
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
 desloppify scan [path] --markdown --pack js-ts  # readable markdown report
-desloppify scan [path] --wiki --project desloppify --pack js-ts
-desloppify scan [path] --handoff --project desloppify --slice DESLOPPIFY-006 --pack js-ts
+desloppify scan [path] --wiki --project <project> --pack js-ts
+desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack js-ts
 desloppify scan [path] --category complexity --pack js-ts
 desloppify scan [path] --architecture modular-monolith --pack js-ts
 desloppify scan [path] --staged --pack js-ts    # staged git changes only
@@ -140,6 +140,11 @@ A normal `desloppify scan ...` run writes artifacts to:
 - `.desloppify/reports/latest.handoff.md`
 
 The CLI also prints these paths after the scan so agents and humans know exactly what to read next.
+
+Recommended follow-up order:
+1. `latest.findings.json` for machine decisions
+2. `latest.report.md` for human review
+3. `latest.wiki.json` or `latest.handoff.md` for workflow handoff
 
 ## Scoring
 
