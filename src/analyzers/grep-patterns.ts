@@ -511,12 +511,13 @@ function isRedundantBooleanReturn(lines: string[], index: number): boolean {
   return false;
 }
 
-function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): Issue[] {
+function scanFileLines(filePath: string, lines: string[], isTestFile: boolean, ruleFilter?: (id: string) => boolean): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const nextLine = lines[i + 1] ?? "";
     for (const rule of RULES) {
+      if (ruleFilter && !ruleFilter(rule.id)) continue;
       if (rule.skipTest && isTestFile) continue;
       if (!rule.pattern.test(line)) continue;
       if (isLineIgnored(line, rule.id)) continue;
@@ -547,10 +548,10 @@ function scanFileLines(filePath: string, lines: string[], isTestFile: boolean): 
   return found;
 }
 
-export function runGrepPatternsFromEntries(entries: FileEntry[]): Issue[] {
+export function runGrepPatternsFromEntries(entries: FileEntry[], ruleFilter?: (id: string) => boolean): Issue[] {
   const issues: Issue[] = [];
   for (const entry of entries) {
-    const found = scanFileLines(entry.path, entry.lines, TEST_FILE.test(entry.path));
+    const found = scanFileLines(entry.path, entry.lines, TEST_FILE.test(entry.path), ruleFilter);
     issues.push(...found);
   }
   return issues;

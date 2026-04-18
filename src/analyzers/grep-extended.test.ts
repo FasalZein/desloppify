@@ -42,6 +42,14 @@ describe("runGrepExtendedFromEntries", () => {
     expect(issues.map((issue) => issue.id)).not.toContain("BARE_ASYNC_MAP");
   });
 
+  test("supports pack-level rule filtering", () => {
+    const issues = runGrepExtendedFromEntries([
+      entry("/repo/src/data.py", "list = []\npickle.loads(payload)"),
+    ], (ruleId) => ruleId === "PICKLE_LOADS");
+
+    expect(issues.map((issue) => issue.id)).toEqual(["PICKLE_LOADS"]);
+  });
+
   test("avoids reviewed runtime and naming false positives", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/fs.ts", "return Bun.file(path).json() as Promise<T>;"),

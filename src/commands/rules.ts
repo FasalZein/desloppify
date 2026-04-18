@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
 import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
+import { isRuleInPack, resolvePackSelection } from "../packs";
 
 const RULES = [
   // dead-code
@@ -191,6 +192,7 @@ export default defineCommand({
   args: {
     category: { type: "string", description: "Filter by category" },
     architecture: { type: "string", description: "Architecture profile (e.g. modular-monolith)" },
+    pack: { type: "string", description: "Rule pack (e.g. js-ts, python)" },
     json: { type: "boolean", description: "JSON output" },
   },
   run({ args }) {
@@ -200,10 +202,12 @@ export default defineCommand({
 
     const architecture = resolveArchitectureProfileName(args.architecture);
     const profile = getArchitectureProfile(architecture);
+    const pack = args.pack ? resolvePackSelection(args.pack) : null;
 
     const filtered = RULES.filter((r) => {
       if (args.category && r.category !== args.category) return false;
       if (profile && !profile.ruleIds.includes(r.id)) return false;
+      if (pack && !isRuleInPack(pack.name, r.id)) return false;
       return true;
     });
 
@@ -217,6 +221,10 @@ export default defineCommand({
 
     if (architecture) {
       console.log(`Architecture profile: ${architecture}`);
+      console.log("");
+    }
+    if (pack) {
+      console.log(`Pack: ${pack.name}`);
       console.log("");
     }
 

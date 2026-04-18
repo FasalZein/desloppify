@@ -1,53 +1,64 @@
 import type { Issue } from "../types";
-import { resolve } from "path";
+import { resolve, join } from "path";
+import { readdirSync } from "fs";
 import { loadIgnorePatterns, isFileIgnored } from "../ignore";
 
 const RULES_DIR = resolve(import.meta.dir, "../../src/rules");
+const RULE_FILES = readdirSync(RULES_DIR)
+  .filter((file) => file.endsWith(".yml") && file !== "sgconfig.yml")
+  .map((file) => join(RULES_DIR, file));
 
-export async function runAstGrep(targetPath: string): Promise<Issue[]> {
+interface AstGrepOptions {
+  ruleFilter?: (ruleId: string) => boolean;
+  fileFilter?: (filePath: string) => boolean;
+}
+
+export async function runAstGrep(targetPath: string, options: AstGrepOptions = {}): Promise<Issue[]> {
   const sgCmd = Bun.which("sg") ? "sg" : "ast-grep";
   const ignorePatterns = await loadIgnorePatterns(targetPath);
-
-  const result = Bun.spawnSync(
-    [sgCmd, "scan", "--rule", RULES_DIR, targetPath, "--json=stream"],
-    { stdout: "pipe", stderr: "pipe", timeout: 60_000 }
-  );
-
-  if (result.exitCode !== 0 && result.exitCode !== 1) {
-    return [];
-  }
-
-  const stdout = result.stdout.toString().trim();
-  if (!stdout) return [];
-
   const issues: Issue[] = [];
 
-  for (const line of stdout.split("\n")) {
-    if (!line.trim()) continue;
-    try {
-      const match = JSON.parse(line);
-      const ruleId: string = match.ruleId ?? match.rule_id ?? "UNKNOWN";
-      const meta = RULE_META[ruleId];
-      if (!meta) continue;
+  for (const ruleFile of RULE_FILES) {
+    const result = Bun.spawnSync(
+      [sgCmd, "scan", "--rule", ruleFile, targetPath, "--json=stream"],
+      { stdout: "pipe", stderr: "pipe", timeout: 60_000 }
+    );
 
-      const file = match.file ?? match.path ?? "";
+    if (result.exitCode !== 0 && result.exitCode !== 1) {
+      continue;
+    }
 
-      // Skip files matching .desloppifyignore
-      if (isFileIgnored(file, targetPath, ignorePatterns)) continue;
+    const stdout = result.stdout.toString().trim();
+    if (!stdout) continue;
 
-      issues.push({
-        id: ruleId,
-        category: meta.category,
-        severity: meta.severity,
-        tier: meta.tier,
-        file,
-        line: match.range?.start?.line ?? match.start?.line ?? 0,
-        message: match.message ?? meta.message,
-        fix: meta.fix,
-        tool: "ast-grep",
-      });
-    } catch {
-      // Non-JSON line from ast-grep, skip
+    for (const line of stdout.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const match = JSON.parse(line);
+        const ruleId: string = match.ruleId ?? match.rule_id ?? "UNKNOWN";
+        const meta = RULE_META[ruleId];
+        if (!meta) continue;
+
+        const file = match.file ?? match.path ?? "";
+
+        if (options.ruleFilter && !options.ruleFilter(ruleId)) continue;
+        if (options.fileFilter && !options.fileFilter(file)) continue;
+        if (isFileIgnored(file, targetPath, ignorePatterns)) continue;
+
+        issues.push({
+          id: ruleId,
+          category: meta.category,
+          severity: meta.severity,
+          tier: meta.tier,
+          file,
+          line: match.range?.start?.line ?? match.start?.line ?? 0,
+          message: match.message ?? meta.message,
+          fix: meta.fix,
+          tool: "ast-grep",
+        });
+      } catch {
+        // Non-JSON line from ast-grep, skip
+      }
     }
   }
 

@@ -406,11 +406,11 @@ function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Is
   return found;
 }
 
-export function runGrepExtendedFromEntries(entries: FileEntry[]): Issue[] {
+export function runGrepExtendedFromEntries(entries: FileEntry[], ruleFilter?: (id: string) => boolean): Issue[] {
   const issues: Issue[] = [];
   for (const entry of entries) {
     const applicableRules = ACTIVE_RULES.filter(
-      (r) => !r.fileFilter || r.fileFilter.test(entry.path)
+      (r) => (!ruleFilter || ruleFilter(r.id)) && (!r.fileFilter || r.fileFilter.test(entry.path))
     );
     if (applicableRules.length === 0) continue;
     const found = scanFileLines(entry.path, entry.lines, applicableRules);

@@ -66,4 +66,31 @@ describe("types", () => {
     expect(report.architecture?.profile).toBe("modular-monolith");
     expect(report.findings[0]?.rule_id).toBe("TEST_RULE");
   });
+
+  test("pack selection shape supports non-js packs", () => {
+    const report: ScanReport = {
+      schema_version: "desloppify.findings/v1",
+      scan: {
+        version: "1.0.1",
+        path: "/repo",
+        generatedAt: "2026-04-18T00:00:00.000Z",
+        pack: { name: "python", explicit: true },
+      },
+      tools: {
+        knip: false,
+        madge: false,
+        "ast-grep": true,
+        tsc: false,
+        eslint: false,
+        biome: false,
+      },
+      score: 100,
+      summary: { critical: 0, high: 0, medium: 0, low: 0 },
+      categories: {},
+      rules: {},
+      findings: [],
+    };
+
+    expect(report.scan.pack.name).toBe("python");
+  });
 });

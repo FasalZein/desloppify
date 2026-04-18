@@ -63,6 +63,7 @@ brew install ast-grep                     # structural pattern matching
 
 ```bash
 desloppify scan [path] --pack js-ts               # terminal report + saved local artifacts
+desloppify scan [path] --pack python              # first non-JS pack for Python repos
 # artifacts are written under .desloppify/reports/
 desloppify scan [path] --json --pack js-ts        # normalized findings JSON
 desloppify scan [path] --markdown --pack js-ts    # readable markdown report
@@ -72,6 +73,7 @@ desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack j
                                                  # compact markdown handoff with slice context
 desloppify scan [path] --category <id> --pack js-ts
 desloppify score [path] --pack js-ts              # weighted quality grade
+desloppify rules --pack python                    # inspect the python bundle directly
 ```
 
 After a normal scan, read these in order:
@@ -126,12 +128,14 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify setup` | Print first-run setup guidance |
 | `desloppify install-hooks` | Install repo-local hooks |
 | `desloppify scan [path] --pack js-ts` | Detect issues, terminal report |
+| `desloppify scan [path] --pack python` | Python pack scan |
 | `desloppify scan --json --pack js-ts` | Normalized findings JSON |
 | `desloppify scan --markdown --pack js-ts` | Readable markdown report |
 | `desloppify scan --wiki --project <project> --pack js-ts` | Wiki-forge review JSON |
 | `desloppify scan --handoff --project <project> --slice <slice-id> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |
 | `desloppify score [path] --pack js-ts` | Weighted quality score + grade |
+| `desloppify rules --pack python` | Python rule catalog |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |

@@ -95,6 +95,14 @@ describe("runGrepPatternsFromEntries", () => {
     expect(issues.find((issue) => issue.id === "BANNER_COMMENT")?.file).toBe("/repo/src/lone.ts");
   });
 
+  test("supports pack-level rule filtering", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/main.ts", "// ====================\nconst ready = value === true;"),
+    ], (ruleId) => ruleId === "BANNER_COMMENT");
+
+    expect(issues.map((issue) => issue.id)).toEqual(["BANNER_COMMENT"]);
+  });
+
   test("does not self-match metadata", () => {
     const issues = runGrepPatternsFromEntries([
       entry("/repo/src/analyzers/grep-patterns.ts", "pattern: /debugger|breakpoint|pdb\\.set_trace|dbg!/,"),

@@ -21,6 +21,8 @@ bunx desloppify setup
 # 4) Run the scanner
 bunx desloppify scan . --pack js-ts
 bunx desloppify score . --pack js-ts
+# or, for Python repos:
+bunx desloppify scan . --pack python
 ```
 
 ## Install as a skill
@@ -100,6 +102,7 @@ desloppify install-skill                        # run npx skills add FasalZein/d
 desloppify install-hooks --print                # print the canonical git hook install command
 desloppify install-hooks                        # install repo-local pre-commit / pre-push hooks
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
+desloppify scan [path] --pack python            # first non-JS pack for Python repos
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
 desloppify scan [path] --markdown --pack js-ts  # readable markdown report
 desloppify scan [path] --wiki --project <project> --pack js-ts
@@ -109,8 +112,9 @@ desloppify scan [path] --architecture modular-monolith --pack js-ts
 desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
-desloppify score [path] --architecture modular-monolith --pack js-ts
+desloppify score [path] --pack python           # weighted quality grade for Python scans
 desloppify rules                                # list all detection rules
+desloppify rules --pack python                  # python-specific rule bundle
 desloppify rules --architecture modular-monolith # active architecture bundle only
 desloppify fix [path] --safe                    # auto-fix safe mechanical issues
 desloppify fix [path] --confident               # add AST-validated fixes
@@ -180,9 +184,10 @@ Desloppify is moving toward a language-agnostic core with explicit first-party p
 
 | Pack | Status | Notes |
 |------|--------|-------|
-| `js-ts` | Available | Current JavaScript / TypeScript / React-oriented analyzer bundle |
+| `js-ts` | Available | JavaScript / TypeScript / React-oriented analyzer bundle |
+| `python` | Available | First non-JS pack with python-scoped grep and ast-grep rules |
 
-More packs can be added later without changing the core scan/report contract.
+More packs can be added without changing the core scan/report contract.
 
 ## False positives
 

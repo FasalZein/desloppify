@@ -15,4 +15,16 @@ describe("rules command", () => {
     expect(output).toContain("LAYER_BOUNDARY_VIOLATION");
     expect(output).toContain("PRIVATE_MODULE_IMPORT");
   });
+
+  test("filters by pack", () => {
+    const result = run(["--pack", "python"]);
+    const output = result.stdout.toString();
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Pack: python");
+    expect(output).toContain("MUTABLE_DEFAULT");
+    expect(output).toContain("BARE_EXCEPT");
+    expect(output).not.toContain("USEEFFECT_ASYNC");
+    expect(output).not.toContain("UNWRAP_CALL");
+  });
 });

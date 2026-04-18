@@ -1,4 +1,4 @@
-export type PackName = "js-ts";
+export type PackName = "js-ts" | "python";
 
 export interface PackSelection {
   name: PackName;
