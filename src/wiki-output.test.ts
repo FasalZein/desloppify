@@ -52,8 +52,17 @@ describe("wiki output", () => {
       "wiki-closeout",
     ]);
     expect(wiki.workflowCommands[0]?.command).toContain("latest.findings.json");
+    expect(wiki.workflowCommands[0]?.exec).toEqual({
+      command: "cat",
+      args: ["/repo/.desloppify/reports/latest.findings.json"],
+    });
     expect(wiki.workflowCommands[1]?.command).toContain("desloppify worktrees /repo");
+    expect(wiki.workflowCommands[1]?.exec).toEqual({
+      command: "desloppify",
+      args: ["worktrees", "/repo"],
+    });
     expect(wiki.workflowCommands[2]?.command).toContain("wiki closeout desloppify");
+    expect(wiki.workflowCommands[2]?.exec).toBeUndefined();
     expect(wiki.handoff.resumeHint).toBeUndefined();
   });
 

@@ -18,6 +18,10 @@ export interface WikiWorkflowCommand {
   id: string;
   label: string;
   command: string;
+  exec?: {
+    command: string;
+    args: string[];
+  };
 }
 
 export interface WikiReport {
@@ -122,16 +126,25 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
         closeoutCommand,
       ];
 
+  const findingsPath = `${report.scan.path}/.desloppify/reports/latest.findings.json`;
   const workflowCommands: WikiWorkflowCommand[] = [
     {
       id: "read-findings",
       label: "Read machine findings",
-      command: `cat ${report.scan.path}/.desloppify/reports/latest.findings.json`,
+      command: `cat ${findingsPath}`,
+      exec: {
+        command: "cat",
+        args: [findingsPath],
+      },
     },
     {
       id: "prepare-fixes",
       label: "Prepare fix workflow",
       command: `desloppify worktrees ${report.scan.path}`,
+      exec: {
+        command: "desloppify",
+        args: ["worktrees", report.scan.path],
+      },
     },
     {
       id: "wiki-closeout",

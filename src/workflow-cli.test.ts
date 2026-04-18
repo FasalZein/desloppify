@@ -69,12 +69,22 @@ describe("CLI workflow", () => {
 
     const result = runCli(["scan", root, "--pack", "js-ts"]);
     const output = squashWhitespace(stripAnsi(result.stdout.toString()));
-    const { findingsPath } = expectArtifacts(root);
+    const { findingsPath, wikiPath } = expectArtifacts(root);
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain("Findings JSON:");
     expect(output).toContain("Readable report:");
     expect(readFileSync(findingsPath, "utf8")).toContain("CONSOLE_LOG");
+    const wikiArtifact = JSON.parse(readFileSync(wikiPath, "utf8"));
+    expect(wikiArtifact.workflowCommands[0].exec).toEqual({
+      command: "cat",
+      args: [findingsPath],
+    });
+    expect(wikiArtifact.workflowCommands[1].exec).toEqual({
+      command: "desloppify",
+      args: ["worktrees", root],
+    });
+    expect(wikiArtifact.workflowCommands[2].exec).toBeUndefined();
   });
 
   test("non-pretty scan modes also persist canonical artifacts", () => {
