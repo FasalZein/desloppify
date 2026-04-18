@@ -46,6 +46,14 @@ describe("wiki output", () => {
     expect(wiki.handoff.activeSlice).toBe("DESLOPPIFY-003");
     expect(wiki.nextSteps.at(-1)).toContain("wiki closeout desloppify");
     expect(wiki.nextSteps.at(-1)).toContain("--base <rev>");
+    expect(wiki.workflowCommands.map((command) => command.id)).toEqual([
+      "read-findings",
+      "prepare-fixes",
+      "wiki-closeout",
+    ]);
+    expect(wiki.workflowCommands[0]?.command).toContain("latest.findings.json");
+    expect(wiki.workflowCommands[1]?.command).toContain("desloppify worktrees /repo");
+    expect(wiki.workflowCommands[2]?.command).toContain("wiki closeout desloppify");
     expect(wiki.handoff.resumeHint).toBeUndefined();
   });
 

@@ -14,6 +14,12 @@ export interface WikiAction {
   findingIds?: string[];
 }
 
+export interface WikiWorkflowCommand {
+  id: string;
+  label: string;
+  command: string;
+}
+
 export interface WikiReport {
   schema: "wiki-forge.review/v1";
   meta: {
@@ -35,6 +41,7 @@ export interface WikiReport {
   rules: Record<string, RuleDefinition>;
   findings: Finding[];
   actions: WikiAction[];
+  workflowCommands: WikiWorkflowCommand[];
   blockers: string[];
   warnings: string[];
   nextSteps: string[];
@@ -99,21 +106,39 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
       : "Run wiki closeout after code and wiki pages are updated",
   });
 
+  const closeoutCommand = context.project
+    ? `wiki closeout ${context.project} --repo <path> --base <rev>`
+    : "wiki closeout <project> --repo <path> --base <rev>";
+
   const nextSteps = blockingFindings.length > 0
     ? [
         "Fix blocking findings",
         "Update impacted wiki pages from code",
-        context.project
-          ? `wiki closeout ${context.project} --repo <path> --base <rev>`
-          : "wiki closeout <project> --repo <path> --base <rev>",
+        closeoutCommand,
       ]
     : [
         "Review remaining findings",
         "Update impacted wiki pages from code",
-        context.project
-          ? `wiki closeout ${context.project} --repo <path> --base <rev>`
-          : "wiki closeout <project> --repo <path> --base <rev>",
+        closeoutCommand,
       ];
+
+  const workflowCommands: WikiWorkflowCommand[] = [
+    {
+      id: "read-findings",
+      label: "Read machine findings",
+      command: `cat ${report.scan.path}/.desloppify/reports/latest.findings.json`,
+    },
+    {
+      id: "prepare-fixes",
+      label: "Prepare fix workflow",
+      command: `desloppify worktrees ${report.scan.path}`,
+    },
+    {
+      id: "wiki-closeout",
+      label: "Run wiki closeout",
+      command: closeoutCommand,
+    },
+  ];
 
   return {
     schema: "wiki-forge.review/v1",
@@ -136,6 +161,7 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
     rules: report.rules,
     findings: report.findings,
     actions,
+    workflowCommands,
     blockers,
     warnings,
     nextSteps,
