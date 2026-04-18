@@ -99,6 +99,8 @@ const RULES = [
 
   // additional defensive
   { id: "UNCHECKED_PROMISE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Empty .then()/.catch()" },
+  { id: "THROW_NON_ERROR", category: "defensive-programming", tier: 0, tool: "grep", desc: "Thrown value is not an Error instance" },
+  { id: "CATCH_WRAP_NO_CAUSE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Catch wraps error without preserving cause" },
 
   // new ai-slop rules from real-world audit
   { id: "HARDCODED_FAKE_DATA", category: "ai-slop", tier: 0, tool: "grep", desc: "Hardcoded data array — should come from API" },

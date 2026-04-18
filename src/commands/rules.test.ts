@@ -16,6 +16,8 @@ describe("rules command", () => {
       "DEAD_FEATURE_FLAG",
       "HANDWAVY_COMMENT",
       "NOT_IMPLEMENTED_STUB",
+      "THROW_NON_ERROR",
+      "CATCH_WRAP_NO_CAUSE",
     ]));
   });
 

@@ -65,6 +65,8 @@ const HUMAN_RULES: Record<string, string> = {
   MIXED_IMPORT_STYLE: "Mixed require/import",
   CALLBACK_STYLE: "Callback-style fs API",
   UNCHECKED_PROMISE: "Empty .then()/.catch()",
+  THROW_NON_ERROR: "Thrown non-Error value",
+  CATCH_WRAP_NO_CAUSE: "Catch wrap without cause",
   HARDCODED_FAKE_DATA: "Hardcoded data array",
   UNNECESSARY_INTERMEDIATE: "Unnecessary intermediate variable",
   USEMEMO_EMPTY_DEPS: "useMemo with empty deps",

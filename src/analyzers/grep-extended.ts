@@ -183,6 +183,24 @@ const RULES: GrepRule[] = [
     message: "Feature flag always on/off — remove the dead branch or make it real configuration",
     fileFilter: /\.(ts|tsx|js|jsx)$/,
   },
+  {
+    id: "THROW_NON_ERROR",
+    pattern: /^\s*throw\s+(?:["'`]|\{|\[|\d|true\b|false\b|null\b|undefined\b)/,
+    category: "defensive-programming",
+    severity: "HIGH",
+    tier: 0,
+    message: "Thrown value is not an Error instance — throw Error objects for stack/cause semantics",
+    fileFilter: /\.(ts|tsx|js|jsx)$/,
+  },
+  {
+    id: "CATCH_WRAP_NO_CAUSE",
+    pattern: /^\s*throw\s+new\s+(?:Error|TypeError|RangeError|ReferenceError|SyntaxError|URIError|EvalError|AggregateError)\s*\(/,
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Catch block wraps an error without preserving the original cause",
+    fileFilter: /\.(ts|tsx|js|jsx)$/,
+  },
 
   // ── runtime-validation ─────────────────────────────────────
   {
@@ -423,6 +441,17 @@ function isDeadFeatureFlag(lines: string[], index: number): boolean {
   return new RegExp(`(?:if\\s*\\(\\s*!?${variableName}\\s*\\)|${variableName}\\s*\\?)`).test(followUp);
 }
 
+function isCatchWrapNoCause(lines: string[], index: number): boolean {
+  const throwLine = lines[index] ?? "";
+  const catchMatch = lines.slice(Math.max(0, index - 3), index).join("\n").match(/catch\s*\(\s*([A-Za-z_$][\w$]*)\s*\)/);
+  if (!catchMatch) return false;
+  const errorName = catchMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nearby = lines.slice(index, Math.min(lines.length, index + 3)).join("\n");
+  if (new RegExp(`\\bcause\\s*:\\s*${errorName}\\b`).test(nearby)) return false;
+  if (new RegExp(`\\b${errorName}\\b`).test(throwLine)) return false;
+  return true;
+}
+
 function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -432,6 +461,7 @@ function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Is
       if (isLineIgnored(line, rule.id)) continue;
       if (rule.id === "BARE_ASYNC_MAP" && isPromiseWrappedAsyncMap(lines, i)) continue;
       if (rule.id === "DEAD_FEATURE_FLAG" && !isDeadFeatureFlag(lines, i)) continue;
+      if (rule.id === "CATCH_WRAP_NO_CAUSE" && !isCatchWrapNoCause(lines, i)) continue;
       if (rule.id === "FETCH_RESPONSE_CAST" && !hasNearbyFetch(lines, i)) continue;
       if (rule.id === "NUMERIC_SUFFIX" && (isTestOrScriptFile(filePath) || KNOWN_NUMERIC_SUFFIX_TERMS.test(line))) continue;
       found.push({

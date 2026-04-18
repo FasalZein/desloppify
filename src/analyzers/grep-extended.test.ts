@@ -52,21 +52,26 @@ describe("runGrepExtendedFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toEqual(["PICKLE_LOADS"]);
   });
 
-  test("detects researched slop lexicon, JS/TS stubs, and dead feature flags", () => {
+  test("detects researched slop lexicon, JS/TS stubs, dead feature flags, and error semantics", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/comments.ts", "// quick fix until the API is ready\nconst ok = true;"),
       entry("/repo/src/stub.ts", "export function render() {\n  throw new Error(\"Not implemented\");\n}"),
       entry("/repo/src/flags.ts", "const newCheckoutFeatureFlag = false;\nif (newCheckoutFeatureFlag) enableCheckout();"),
+      entry("/repo/src/throw-string.ts", "throw \"boom\";"),
+      entry("/repo/src/throw-object.ts", "throw { code: \"E_BAD\" };"),
+      entry("/repo/src/catch-wrap.ts", "try {\n  run();\n} catch (error) {\n  throw new Error(\"failed\");\n}"),
     ]);
 
     expect(issues.map((issue) => issue.id)).toEqual(expect.arrayContaining([
       "HANDWAVY_COMMENT",
       "NOT_IMPLEMENTED_STUB",
       "DEAD_FEATURE_FLAG",
+      "THROW_NON_ERROR",
+      "CATCH_WRAP_NO_CAUSE",
     ]));
   });
 
-  test("avoids reviewed runtime, naming, and stub false positives", () => {
+  test("avoids reviewed runtime, naming, stub, and exception false positives", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/fs.ts", "return Bun.file(path).json() as Promise<T>;"),
       entry("/repo/src/net.ts", "const response = await fetch(url);\nconst data = await response.json() as User;"),
@@ -77,6 +82,8 @@ describe("runGrepExtendedFromEntries", () => {
       entry("/repo/src/errors.ts", "throw new Error(\"boom\");"),
       entry("/repo/src/flags.ts", "const isPrimary = false;\nif (isPrimary) enablePrimary();"),
       entry("/repo/src/comments.ts", "// this should be fine\nconst ok = true;"),
+      entry("/repo/src/catch-cause.ts", "try {\n  run();\n} catch (error) {\n  throw new Error(\"failed\", { cause: error });\n}"),
+      entry("/repo/src/rethrow.ts", "try {\n  run();\n} catch (error) {\n  throw error;\n}"),
     ]);
 
     expect(issues.filter((issue) => issue.id === "FETCH_RESPONSE_CAST")).toHaveLength(1);
@@ -84,5 +91,7 @@ describe("runGrepExtendedFromEntries", () => {
     expect(issues.map((issue) => issue.id)).not.toContain("NOT_IMPLEMENTED_STUB");
     expect(issues.map((issue) => issue.id)).not.toContain("DEAD_FEATURE_FLAG");
     expect(issues.map((issue) => issue.id)).not.toContain("HANDWAVY_COMMENT");
+    expect(issues.map((issue) => issue.id)).not.toContain("THROW_NON_ERROR");
+    expect(issues.map((issue) => issue.id)).not.toContain("CATCH_WRAP_NO_CAUSE");
   });
 });
