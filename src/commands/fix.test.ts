@@ -30,7 +30,7 @@ describe("fix command", () => {
     mkdirSync(join(tempRoot, "src"), { recursive: true });
     writeFileSync(join(tempRoot, "package.json"), JSON.stringify({ name: "fixture", version: "1.0.0" }));
     const filePath = join(tempRoot, "src", "bad.ts");
-    writeFileSync(filePath, "// ====================\nconsole.log('debug');\n");
+    writeFileSync(filePath, "// ====================\nconsole.log('debug');\nreturn undefined;\nconst ready = value === true;\n");
 
     const before = readFileSync(filePath, "utf8");
     const result = run([tempRoot, "--safe", "--dry-run"]);
@@ -38,6 +38,24 @@ describe("fix command", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.toString()).toContain("BANNER_COMMENT");
+    expect(result.stdout.toString()).toContain("RETURN_UNDEFINED");
+    expect(result.stdout.toString()).toContain("EXPLICIT_TRUE_COMPARE");
     expect(before).toBe(after);
+  });
+
+  test("safe mode applies simple non-delete rewrites", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-fix-apply-"));
+    mkdirSync(join(tempRoot, "src"), { recursive: true });
+    writeFileSync(join(tempRoot, "package.json"), JSON.stringify({ name: "fixture", version: "1.0.0" }));
+    const filePath = join(tempRoot, "src", "bad.ts");
+    writeFileSync(filePath, "return undefined;\nconst ready = value === true;\nconst closed = done === false;\n");
+
+    const result = run([tempRoot, "--safe"]);
+    const after = readFileSync(filePath, "utf8");
+
+    expect(result.exitCode).toBe(0);
+    expect(after).toContain("return;");
+    expect(after).toContain("const ready = value;");
+    expect(after).toContain("const closed = !done;");
   });
 });

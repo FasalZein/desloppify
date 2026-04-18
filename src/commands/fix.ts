@@ -20,7 +20,9 @@ export default defineCommand({
   },
   async run({ args }) {
     const targetPath = resolve(args.path);
-    const maxTier: Tier = args.all ? 3 : args.confident ? 2 : 1;
+    let maxTier: Tier = 1;
+    if (args.confident) maxTier = 2;
+    if (args.all) maxTier = 3;
     const dryRun = args["dry-run"] ?? false;
 
     if (!dryRun) {
@@ -158,10 +160,14 @@ function gitCheckpoint(cwd: string): string | null {
 }
 
 async function applyFix(issue: Issue): Promise<boolean> {
-  // For now, fixes are limited to line removals (tier 1 comment/slop removal)
-  // More sophisticated fixes can be added per rule ID
   if (issue.tier === 1 && isRemovalFix(issue.id)) {
     return removeLine(issue.file, issue.line);
+  }
+  if (issue.tier === 1 && issue.id === "RETURN_UNDEFINED") {
+    return rewriteLine(issue.file, issue.line, (line) => line.replace(/return\s+undefined\s*;/, "return;"));
+  }
+  if (issue.tier === 1 && issue.id === "EXPLICIT_TRUE_COMPARE") {
+    return rewriteLine(issue.file, issue.line, simplifyBooleanComparison);
   }
 
   // Tier 2+ fixes need AST-aware transforms — flag for agent to handle
@@ -179,17 +185,41 @@ function isRemovalFix(ruleId: string): boolean {
 }
 
 async function removeLine(filePath: string, lineNum: number): Promise<boolean> {
+  return rewriteFileLines(filePath, lineNum, (lines, index) => {
+    lines.splice(index, 1);
+    return true;
+  });
+}
+
+async function rewriteLine(filePath: string, lineNum: number, transform: (line: string) => string): Promise<boolean> {
+  return rewriteFileLines(filePath, lineNum, (lines, index) => {
+    const next = transform(lines[index] ?? "");
+    if (next === lines[index]) return false;
+    lines[index] = next;
+    return true;
+  });
+}
+
+async function rewriteFileLines(filePath: string, lineNum: number, mutate: (lines: string[], index: number) => boolean): Promise<boolean> {
   try {
     const file = Bun.file(filePath);
     const content = await file.text();
     const lines = content.split("\n");
+    const index = lineNum - 1;
 
-    if (lineNum < 1 || lineNum > lines.length) return false;
+    if (index < 0 || index >= lines.length) return false;
+    const changed = mutate(lines, index);
+    if (!changed) return false;
 
-    lines.splice(lineNum - 1, 1);
     await Bun.write(filePath, lines.join("\n"));
     return true;
   } catch {
     return false;
   }
+}
+
+function simplifyBooleanComparison(line: string): string {
+  return line
+    .replace(/\b(\w+)\s*===?\s*true\b/g, "$1")
+    .replace(/\b(\w+)\s*===?\s*false\b/g, "!$1");
 }
