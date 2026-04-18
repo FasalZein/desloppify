@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { resolve } from "path";
 import * as p from "@clack/prompts";
-import { getRecommendations, detectProject } from "../tools";
+import { getRecommendations, detectAvailablePacks, detectProject, detectSuggestedPack } from "../tools";
 
 export default defineCommand({
   meta: { name: "check-tools", description: "Show available analysis tools and install recommendations" },
@@ -13,9 +13,11 @@ export default defineCommand({
     const targetPath = resolve(args.path);
     const project = detectProject(targetPath);
     const recs = getRecommendations(targetPath);
+    const packs = detectAvailablePacks(targetPath);
+    const suggestedPack = detectSuggestedPack(targetPath);
 
     if (args.json) {
-      console.log(JSON.stringify({ project, tools: recs }, null, 2));
+      console.log(JSON.stringify({ project, packs: { available: packs, suggested: suggestedPack }, tools: recs }, null, 2));
       return;
     }
 
@@ -35,6 +37,12 @@ export default defineCommand({
       .filter(([, v]) => v)
       .map(([k]) => k);
     p.log.info(`Project: ${detected.length > 0 ? detected.join(", ") : "unknown"}`);
+    p.log.info(`Packs: ${packs.length > 0 ? packs.join(", ") : "none detected"}`);
+    if (suggestedPack) {
+      p.log.info(`Suggested pack: ${suggestedPack}`);
+    } else if (packs.length > 1) {
+      p.log.info("Suggested pack: choose explicitly with --pack");
+    }
 
     // Installed tools
     const installed = recs.filter((r) => r.available);

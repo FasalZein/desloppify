@@ -27,7 +27,7 @@ desloppify setup                          # prints the guided first-run setup
 Then check what tooling is available and install what's missing:
 
 ```bash
-desloppify check-tools [path]             # shows project-aware recommendations
+desloppify check-tools [path]             # shows project-aware tool + pack recommendations
 ```
 
 The CLI auto-detects your project type (TS, Python, Rust, Go) and recommends relevant tools. Install the recommended ones for best coverage:
@@ -140,7 +140,7 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |
 | `desloppify rules` | List all detection rules |
-| `desloppify check-tools [path] --json` | Project-aware tool recommendations |
+| `desloppify check-tools [path] --json` | Project-aware tool + pack recommendations |
 | `desloppify worktrees [path]` | Print worktree setup commands |
 
 ## Safety tiers

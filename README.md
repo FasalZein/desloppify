@@ -119,7 +119,7 @@ desloppify rules --architecture modular-monolith # active architecture bundle on
 desloppify fix [path] --safe                    # auto-fix safe mechanical issues
 desloppify fix [path] --confident               # add AST-validated fixes
 desloppify fix [path] --all                     # include cross-file fixes
-desloppify check-tools [path] --json            # show available analyzers as JSON
+desloppify check-tools [path] --json            # show available analyzers plus available/suggested packs as JSON
 desloppify worktrees [path]                     # print worktree setup commands
 ```
 
@@ -186,6 +186,8 @@ Desloppify is moving toward a language-agnostic core with explicit first-party p
 |------|--------|-------|
 | `js-ts` | Available | JavaScript / TypeScript / React-oriented analyzer bundle |
 | `python` | Available | First non-JS pack with python-scoped grep and ast-grep rules |
+
+Run `desloppify check-tools .` before your first scan to see the available packs for the repo and the suggested pack when the choice is unambiguous.
 
 More packs can be added without changing the core scan/report contract.
 

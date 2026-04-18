@@ -22,6 +22,7 @@ describe("setup helpers", () => {
     const guide = formatSetupGuide();
     expect(guide).toContain("npx skills add FasalZein/desloppify");
     expect(guide).toContain("desloppify install-hooks");
+    expect(guide).toContain("desloppify check-tools .");
     expect(guide).toContain("bunx desloppify scan . --pack js-ts");
   });
 });

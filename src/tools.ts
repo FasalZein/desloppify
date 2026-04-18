@@ -1,4 +1,4 @@
-import type { ToolStatus } from "./types";
+import type { PackName, ToolStatus } from "./types";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -57,6 +57,25 @@ export interface ProjectInfo {
   rust: boolean;
   go: boolean;
   react: boolean;
+}
+
+export function detectAvailablePacks(targetPath: string): PackName[] {
+  const project = detectProject(targetPath);
+  const packs: PackName[] = [];
+
+  if (project.javascript || project.typescript || project.react) {
+    packs.push("js-ts");
+  }
+  if (project.python) {
+    packs.push("python");
+  }
+
+  return packs;
+}
+
+export function detectSuggestedPack(targetPath: string): PackName | null {
+  const packs = detectAvailablePacks(targetPath);
+  return packs.length === 1 ? packs[0] ?? null : null;
 }
 
 export interface ToolRecommendation {
