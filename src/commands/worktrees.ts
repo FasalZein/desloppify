@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
-import { resolve } from "path";
+import { existsSync } from "node:fs";
+import { join, resolve } from "path";
 
 const CATEGORIES = [
   "dead-code",
@@ -13,6 +14,11 @@ const CATEGORIES = [
   "inconsistency",
   "complexity",
   "security-slop",
+  "test-quality",
+  "async-correctness",
+  "runtime-validation",
+  "accessibility",
+  "naming-semantics",
 ];
 
 export default defineCommand({
@@ -26,9 +32,14 @@ export default defineCommand({
     const cats = args.categories
       ? args.categories.split(",").map((c: string) => c.trim())
       : CATEGORIES;
+    const findingsPath = join(targetPath, ".desloppify", "reports", "latest.findings.json");
+    const branchName = getCurrentBranch(targetPath) ?? "main";
 
     console.log("# Desloppify worktree setup");
     console.log("# Run these commands to create isolated worktrees for each fix category");
+    if (existsSync(findingsPath)) {
+      console.log(`# Saved findings: ${findingsPath}`);
+    }
     console.log("");
 
     for (const cat of cats) {
@@ -40,10 +51,21 @@ export default defineCommand({
     }
 
     console.log("# After all agents complete, merge:");
-    console.log("git checkout main");
+    console.log(`git checkout ${branchName}`);
     for (const cat of cats) {
       console.log(`git merge fix/${cat}`);
     }
     console.log("git worktree prune");
   },
 });
+
+function getCurrentBranch(cwd: string): string | null {
+  const result = Bun.spawnSync(["git", "branch", "--show-current"], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (result.exitCode !== 0) return null;
+  const branch = result.stdout.toString().trim();
+  return branch.length > 0 ? branch : null;
+}
