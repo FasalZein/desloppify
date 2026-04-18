@@ -30,7 +30,7 @@ function createFixtureRepo() {
 }
 
 describe("workflow e2e", () => {
-  test("scan writes artifacts, fix dry-run is non-mutating, and worktrees prints actionable commands", () => {
+  test("scan writes artifacts, fix dry-run is non-mutating, and worktrees turns findings into triage then commands", () => {
     const repo = createFixtureRepo();
 
     const scan = runCli(["scan", repo, "--pack", "js-ts", "--category", "ai-slop"]);
@@ -45,11 +45,20 @@ describe("workflow e2e", () => {
     expect(fix.stdout.toString()).toContain("BANNER_COMMENT");
     expect(before).toBe(after);
 
-    const worktrees = runCli(["worktrees", repo, "--categories", "ai-slop,async-correctness"]);
+    const triage = runCli(["worktrees", repo]);
+    const triageOutput = triage.stdout.toString();
+    expect(triage.exitCode).toBe(0);
+    expect(triageOutput).toContain("# Desloppify worktree triage");
+    expect(triageOutput).toContain("# ai-slop");
+    expect(triageOutput).toContain("- findings: 1");
+    expect(triageOutput).toContain(`desloppify worktrees ${repo} --categories ai-slop`);
+
+    const worktrees = runCli(["worktrees", repo, "--categories", "ai-slop"]);
     const output = worktrees.stdout.toString();
     expect(worktrees.exitCode).toBe(0);
     expect(output).toContain("git worktree add -b fix/ai-slop");
-    expect(output).toContain("git worktree add -b fix/async-correctness");
-    expect(output).toContain("git merge fix/async-correctness");
+    expect(output).toContain("desloppify scan . --category ai-slop --pack js-ts");
+    expect(output).toContain("desloppify fix . --safe --dry-run");
+    expect(output).not.toContain("git worktree add -b fix/async-correctness");
   });
 });

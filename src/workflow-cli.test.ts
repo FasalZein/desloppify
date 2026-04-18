@@ -85,7 +85,7 @@ describe("CLI workflow", () => {
     const { root } = createTempRepo();
     runCli(["scan", root, "--pack", "js-ts"]);
 
-    const result = runCli(["worktrees", root, "--categories", "ai-slop,complexity"]);
+    const result = runCli(["worktrees", root, "--categories", "ai-slop"]);
     const output = squashWhitespace(result.stdout.toString());
     const branch = Bun.spawnSync(["git", "-C", root, "branch", "--show-current"], { stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
 
@@ -93,6 +93,6 @@ describe("CLI workflow", () => {
     expect(output).toContain(`# Saved findings: ${join(root, ".desloppify", "reports", "latest.findings.json")}`);
     expect(output).toContain(`git checkout ${branch}`);
     expect(output).toContain("git merge fix/ai-slop");
-    expect(output).toContain("git merge fix/complexity");
+    expect(output).not.toContain("git merge fix/complexity");
   });
 });
