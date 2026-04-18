@@ -7,6 +7,18 @@ const run = (args: string[]) => Bun.spawnSync(["bun", "src/cli.ts", "rules", ...
 });
 
 describe("rules command", () => {
+  test("surfaces newly implemented research-driven rules", () => {
+    const result = run(["--json"]);
+    const rules = JSON.parse(result.stdout.toString()) as Array<{ id: string }>;
+
+    expect(result.exitCode).toBe(0);
+    expect(rules.map((rule) => rule.id)).toEqual(expect.arrayContaining([
+      "DEAD_FEATURE_FLAG",
+      "HANDWAVY_COMMENT",
+      "NOT_IMPLEMENTED_STUB",
+    ]));
+  });
+
   test("filters by architecture profile", () => {
     const result = run(["--architecture", "modular-monolith"]);
     const output = result.stdout.toString();

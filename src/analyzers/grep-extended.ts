@@ -155,6 +155,34 @@ const RULES: GrepRule[] = [
     tier: 0,
     message: "JSON stringify/parse deep clone — lossy and slow. Use structuredClone when available.",
   },
+  {
+    id: "HANDWAVY_COMMENT",
+    pattern: /^\s*(\/\/|#)\s*(quick fix|temporary workaround|works for now|good enough|safe enough|hacky|dirty)\b/i,
+    category: "ai-slop",
+    severity: "LOW",
+    tier: 1,
+    message: "Handwavy comment — vague workaround language leaked into code",
+    fileFilter: /\.(ts|tsx|js|jsx)$/,
+  },
+  {
+    id: "NOT_IMPLEMENTED_STUB",
+    pattern: /throw\s+new\s+Error\s*\(\s*["'`](todo|not implemented|unimplemented|stub|implement me|placeholder)["'`]\s*\)/i,
+    category: "ai-slop",
+    severity: "MEDIUM",
+    tier: 1,
+    message: "Not-implemented stub shipped in JS/TS code",
+    fix: "Implement the function or replace the placeholder stub",
+    fileFilter: /\.(ts|tsx|js|jsx)$/,
+  },
+  {
+    id: "DEAD_FEATURE_FLAG",
+    pattern: /^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*(?:flag|feature|enabled|toggle|experiment|gate)[A-Za-z_$\d]*\s*=\s*(true|false)\s*;?\s*$/i,
+    category: "legacy-code",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Feature flag always on/off — remove the dead branch or make it real configuration",
+    fileFilter: /\.(ts|tsx|js|jsx)$/,
+  },
 
   // ── runtime-validation ─────────────────────────────────────
   {
@@ -387,6 +415,14 @@ function isPromiseWrappedAsyncMap(lines: string[], index: number): boolean {
   return new RegExp(`Promise\\.(all|allSettled|race|any)\\s*\\(\\s*${variableName}\\s*\\)`).test(followUp);
 }
 
+function isDeadFeatureFlag(lines: string[], index: number): boolean {
+  const match = lines[index]?.match(/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*(?:flag|feature|enabled|toggle|experiment|gate)[A-Za-z_$\d]*)\s*=\s*(true|false)\s*;?\s*$/i);
+  if (!match) return false;
+  const variableName = match[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const followUp = lines.slice(index + 1, Math.min(lines.length, index + 5)).join("\n");
+  return new RegExp(`(?:if\\s*\\(\\s*!?${variableName}\\s*\\)|${variableName}\\s*\\?)`).test(followUp);
+}
+
 function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -395,6 +431,7 @@ function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Is
       if (!rule.pattern.test(line)) continue;
       if (isLineIgnored(line, rule.id)) continue;
       if (rule.id === "BARE_ASYNC_MAP" && isPromiseWrappedAsyncMap(lines, i)) continue;
+      if (rule.id === "DEAD_FEATURE_FLAG" && !isDeadFeatureFlag(lines, i)) continue;
       if (rule.id === "FETCH_RESPONSE_CAST" && !hasNearbyFetch(lines, i)) continue;
       if (rule.id === "NUMERIC_SUFFIX" && (isTestOrScriptFile(filePath) || KNOWN_NUMERIC_SUFFIX_TERMS.test(line))) continue;
       found.push({

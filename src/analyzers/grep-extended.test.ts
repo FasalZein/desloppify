@@ -52,7 +52,21 @@ describe("runGrepExtendedFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toEqual(["PICKLE_LOADS"]);
   });
 
-  test("avoids reviewed runtime and naming false positives", () => {
+  test("detects researched slop lexicon, JS/TS stubs, and dead feature flags", () => {
+    const issues = runGrepExtendedFromEntries([
+      entry("/repo/src/comments.ts", "// quick fix until the API is ready\nconst ok = true;"),
+      entry("/repo/src/stub.ts", "export function render() {\n  throw new Error(\"Not implemented\");\n}"),
+      entry("/repo/src/flags.ts", "const newCheckoutFeatureFlag = false;\nif (newCheckoutFeatureFlag) enableCheckout();"),
+    ]);
+
+    expect(issues.map((issue) => issue.id)).toEqual(expect.arrayContaining([
+      "HANDWAVY_COMMENT",
+      "NOT_IMPLEMENTED_STUB",
+      "DEAD_FEATURE_FLAG",
+    ]));
+  });
+
+  test("avoids reviewed runtime, naming, and stub false positives", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/fs.ts", "return Bun.file(path).json() as Promise<T>;"),
       entry("/repo/src/net.ts", "const response = await fetch(url);\nconst data = await response.json() as User;"),
@@ -60,9 +74,15 @@ describe("runGrepExtendedFromEntries", () => {
       entry("/repo/src/math.ts", "const SM2 = { factor: 2 };\nconst sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);"),
       entry("/repo/src/__tests__/names.test.ts", "const id2 = makeId();"),
       entry("/repo/src/names.ts", "const handler2 = createHandler();"),
+      entry("/repo/src/errors.ts", "throw new Error(\"boom\");"),
+      entry("/repo/src/flags.ts", "const isPrimary = false;\nif (isPrimary) enablePrimary();"),
+      entry("/repo/src/comments.ts", "// this should be fine\nconst ok = true;"),
     ]);
 
     expect(issues.filter((issue) => issue.id === "FETCH_RESPONSE_CAST")).toHaveLength(1);
     expect(issues.filter((issue) => issue.id === "NUMERIC_SUFFIX")).toHaveLength(1);
+    expect(issues.map((issue) => issue.id)).not.toContain("NOT_IMPLEMENTED_STUB");
+    expect(issues.map((issue) => issue.id)).not.toContain("DEAD_FEATURE_FLAG");
+    expect(issues.map((issue) => issue.id)).not.toContain("HANDWAVY_COMMENT");
   });
 });

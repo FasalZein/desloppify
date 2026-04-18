@@ -175,6 +175,8 @@ const RULES = [
   { id: "EVAL_EXEC", category: "security-slop", tier: 0, tool: "grep", desc: "eval()/exec() — arbitrary code execution" },
   { id: "PICKLE_LOADS", category: "security-slop", tier: 0, tool: "grep", desc: "pickle.load — RCE on untrusted data" },
   { id: "JSON_DEEP_CLONE", category: "ai-slop", tier: 0, tool: "grep", desc: "JSON stringify/parse deep clone" },
+  { id: "HANDWAVY_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Handwavy workaround comment" },
+  { id: "NOT_IMPLEMENTED_STUB", category: "ai-slop", tier: 1, tool: "grep", desc: "Not-implemented JS/TS stub" },
 
   // additional python
   { id: "MUTABLE_DEFAULT", category: "defensive-programming", tier: 0, tool: "grep", desc: "Mutable default argument — shared state" },
