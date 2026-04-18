@@ -45,25 +45,60 @@ function squashWhitespace(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+function artifactPaths(root: string) {
+  return {
+    findingsPath: join(root, ".desloppify", "reports", "latest.findings.json"),
+    reportPath: join(root, ".desloppify", "reports", "latest.report.md"),
+    wikiPath: join(root, ".desloppify", "reports", "latest.wiki.json"),
+    handoffPath: join(root, ".desloppify", "reports", "latest.handoff.md"),
+  };
+}
+
+function expectArtifacts(root: string) {
+  const { findingsPath, reportPath, wikiPath, handoffPath } = artifactPaths(root);
+  expect(existsSync(findingsPath)).toBe(true);
+  expect(existsSync(reportPath)).toBe(true);
+  expect(existsSync(wikiPath)).toBe(true);
+  expect(existsSync(handoffPath)).toBe(true);
+  return { findingsPath, reportPath, wikiPath, handoffPath };
+}
+
 describe("CLI workflow", () => {
   test("scan writes workflow artifacts for a temp repo", () => {
     const { root } = createTempRepo();
 
     const result = runCli(["scan", root, "--pack", "js-ts"]);
     const output = squashWhitespace(stripAnsi(result.stdout.toString()));
-    const findingsPath = join(root, ".desloppify", "reports", "latest.findings.json");
-    const reportPath = join(root, ".desloppify", "reports", "latest.report.md");
-    const wikiPath = join(root, ".desloppify", "reports", "latest.wiki.json");
-    const handoffPath = join(root, ".desloppify", "reports", "latest.handoff.md");
+    const { findingsPath } = expectArtifacts(root);
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain("Findings JSON:");
     expect(output).toContain("Readable report:");
-    expect(existsSync(findingsPath)).toBe(true);
-    expect(existsSync(reportPath)).toBe(true);
-    expect(existsSync(wikiPath)).toBe(true);
-    expect(existsSync(handoffPath)).toBe(true);
     expect(readFileSync(findingsPath, "utf8")).toContain("CONSOLE_LOG");
+  });
+
+  test("non-pretty scan modes also persist canonical artifacts", () => {
+    const { root } = createTempRepo();
+
+    const json = runCli(["scan", root, "--pack", "js-ts", "--json"]);
+    expect(json.exitCode).toBe(1);
+    expect(() => JSON.parse(json.stdout.toString())).not.toThrow();
+    expectArtifacts(root);
+
+    const markdown = runCli(["scan", root, "--pack", "js-ts", "--markdown"]);
+    expect(markdown.exitCode).toBe(1);
+    expect(markdown.stdout.toString()).toContain("# Desloppify Report");
+    expectArtifacts(root);
+
+    const wiki = runCli(["scan", root, "--pack", "js-ts", "--wiki", "--project", "desloppify"]);
+    expect(wiki.exitCode).toBe(1);
+    expect(() => JSON.parse(wiki.stdout.toString())).not.toThrow();
+    expectArtifacts(root);
+
+    const handoff = runCli(["scan", root, "--pack", "js-ts", "--handoff", "--project", "desloppify", "--slice", "DESLOPPIFY-011"]);
+    expect(handoff.exitCode).toBe(1);
+    expect(handoff.stdout.toString()).toContain("#");
+    expectArtifacts(root);
   });
 
   test("fix --safe --dry-run reports safe fixes without mutating the repo", () => {

@@ -123,6 +123,8 @@ export default defineCommand({
     const reportMarkdown = formatMarkdown(report);
     const handoffMarkdown = formatWikiHandoffMarkdown(wikiReport);
 
+    const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown);
+
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
       console.log(JSON.stringify(report, null, 2));
@@ -146,7 +148,6 @@ export default defineCommand({
     }
 
     // ── Pretty terminal output ─────────────────────────────────
-    const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown);
     const { score, grade, penalty } = calculateScore(filtered);
 
     // Score box

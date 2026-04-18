@@ -24,4 +24,11 @@ describe("scan command", () => {
     // behavior covered by report-artifacts unit tests; scan owns the integration point
     expect(command.meta.name).toBe("scan");
   });
+
+  test("declares all artifact-capable output modes", () => {
+    expect(command.args).toHaveProperty("json");
+    expect(command.args).toHaveProperty("markdown");
+    expect(command.args).toHaveProperty("wiki");
+    expect(command.args).toHaveProperty("handoff");
+  });
 });
