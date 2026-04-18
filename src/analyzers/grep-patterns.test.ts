@@ -64,6 +64,8 @@ describe("runGrepPatternsFromEntries", () => {
       entry("/repo/src/catch.ts", 'try {\n  run();\n} catch (error) {\n  console.error(error);\n  throw error;\n}'),
       entry("/repo/src/guard.ts", 'if (json) console.log(payload);\nthrow new Error("boom");'),
       entry("/repo/src/signature.ts", 'export function appendLogEntry(kind: string, title: string, options?: { project?: string; details?: string[] }) {\n  return title;\n}'),
+      entry("/repo/src/conditional-type.ts", 'export type Handler<T> = T extends string ? (value: string) => void : T extends number ? (value: number) => void : never;'),
+      entry("/repo/src/signature-conditional.ts", 'export function run<T>(value: T extends string ? string : number) {\n  return value;\n}'),
       entry("/repo/src/real.ts", 'const label = ready ? "done" : pending ? "later" : "never";'),
     ]);
 

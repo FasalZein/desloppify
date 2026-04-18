@@ -524,7 +524,7 @@ function scanFileLines(filePath: string, lines: string[], isTestFile: boolean, r
       if (rule.id === "DEBUG_BREAKPOINT" && /(pattern:\s*\/|desc:\s*"|message:\s*"|fix:\s*"|DEBUG_BREAKPOINT:)/.test(line)) continue;
       if (rule.id === "BANNER_COMMENT" && isDecorativeBannerBlock(lines, i)) continue;
       if (rule.id === "UNNECESSARY_USECALLBACK" && /pattern:\s*\//.test(line)) continue;
-      if (rule.id === "NESTED_TERNARY" && (/\/.*\?[:?]/.test(line) || !hasNestedTernary(line))) continue;
+      if (rule.id === "NESTED_TERNARY" && (((line.includes(" extends ") && line.includes(" ? ") && line.includes(" : ")) && (/^\s*(export\s+)?type\b/.test(line) || /:\s*[^=]+\bextends\b.+\?.+:/.test(line))) || /\/.*\?[:?]/.test(line) || !hasNestedTernary(line))) continue;
       if (rule.id === "LOG_AND_RETHROW" && !isCatchLogAndRethrow(lines, i)) continue;
       if (rule.id === "UNNECESSARY_INTERMEDIATE") {
         const match = line.match(/^\s*(const|let)\s+(\w+)\s*=\s*.+;\s*$/);

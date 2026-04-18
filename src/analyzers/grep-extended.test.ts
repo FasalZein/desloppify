@@ -37,6 +37,8 @@ describe("runGrepExtendedFromEntries", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/list.ts", "await Promise.all(items.map(async (item) => save(item)));"),
       entry("/repo/src/list-multiline.ts", "await Promise.all(\n  items.map(async (item) => save(item))\n);"),
+      entry("/repo/src/list-assigned.ts", "const rows = items.map(async (item) => save(item));\nawait Promise.all(rows);"),
+      entry("/repo/src/list-return.ts", "const rows = items.map(async (item) => save(item));\nreturn Promise.all(rows);"),
     ]);
 
     expect(issues.map((issue) => issue.id)).not.toContain("BARE_ASYNC_MAP");

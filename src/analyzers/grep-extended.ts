@@ -376,8 +376,15 @@ function hasNearbyFetch(lines: string[], index: number): boolean {
 }
 
 function isPromiseWrappedAsyncMap(lines: string[], index: number): boolean {
-  const window = lines.slice(Math.max(0, index - 3), Math.min(lines.length, index + 3)).join("\n");
-  return /Promise\.(all|allSettled|race|any)\s*\([\s\S]*\.map\(\s*async\s/.test(window);
+  const nearby = lines.slice(Math.max(0, index - 3), Math.min(lines.length, index + 3)).join("\n");
+  if (/Promise\.(all|allSettled|race|any)\s*\([\s\S]*\.map\(\s*async\s/.test(nearby)) return true;
+
+  const variableMatch = lines[index]?.match(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*.*\.map\(\s*async\s/);
+  if (!variableMatch) return false;
+
+  const variableName = variableMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const followUp = lines.slice(index + 1, Math.min(lines.length, index + 5)).join("\n");
+  return new RegExp(`Promise\\.(all|allSettled|race|any)\\s*\\(\\s*${variableName}\\s*\\)`).test(followUp);
 }
 
 function scanFileLines(filePath: string, lines: string[], rules: GrepRule[]): Issue[] {
