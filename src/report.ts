@@ -67,6 +67,9 @@ export function issueToFinding(issue: Issue): Finding {
       primary: fingerprintFor(issue),
       partial: {
         path_line_rule: `${issue.file}:${issue.line}:${issue.id}`,
+        path_rule_message: `${issue.file}:${issue.id}:${issue.message}`,
+        path_rule: `${issue.file}:${issue.id}`,
+        rule_message: `${issue.id}:${issue.message}`,
       },
     },
     ...(issue.fix
