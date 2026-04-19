@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { applyConfigToIssues, getConfigExample, getRuleScoreWeight, getRuleSeverityOverride, isRuleEnabled, loadDesloppifyConfig } from "./config";
 import type { Issue } from "./types";
 
+const pluginApiPath = join(process.cwd(), "src/plugin-api.ts");
+
 let tempRoot: string | undefined;
 
 afterEach(() => {
@@ -46,7 +48,7 @@ describe("config", () => {
       },
       overrides: [{ files: ["src/rules/**"], rules: { TEST_RULE: { enabled: false } } }],
     }));
-    writeFileSync(join(tempRoot, "plugin.cjs"), `module.exports = { configs: { recommended: { rules: { PLUGIN_RULE: { enabled: false } } } } };`);
+    writeFileSync(join(tempRoot, "plugin.cjs"), `const { definePlugin, PLUGIN_API_VERSION } = require(${JSON.stringify(pluginApiPath)}); module.exports = definePlugin({ meta: { name: 'local-plugin', apiVersion: PLUGIN_API_VERSION, namespace: 'local' }, configs: { recommended: { rules: { PLUGIN_RULE: { enabled: false } } } } });`);
     writeFileSync(join(tempRoot, "desloppify.config.json"), JSON.stringify({
       plugins: { local: "./plugin.cjs" },
       extends: ["./base.json", "plugin:local/recommended"],
@@ -106,6 +108,7 @@ describe("config", () => {
     const config = { rules: { TEST_RULE: { severity: "CRITICAL", weight: 1.5 } } };
     expect(getRuleSeverityOverride(config, "TEST_RULE")).toBe("CRITICAL");
     expect(getRuleScoreWeight(config, "TEST_RULE")).toBe(1.5);
-    expect(getConfigExample()).toContain("CONSOLE_LOG");
+    expect(getConfigExample()).toContain("plugin:local/recommended");
+    expect(getConfigExample()).toContain("desloppify.plugin.cjs");
   });
 });

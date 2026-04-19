@@ -213,6 +213,7 @@ More packs can be added without changing the core scan/report contract.
 Current support is intentionally small and deterministic:
 - `extends`
 - `plugins.<namespace>` for local JSON or module rule packs
+- `plugin:<namespace>/<config>` preset extends
 - `rules.<id>.enabled`
 - `rules.<id>.severity`
 - `rules.<id>.weight`
@@ -244,10 +245,17 @@ Example:
 }
 ```
 
-A local plugin file can be JSON or a local module. It can export regex-based text rules and preset configs.
+A local plugin file can be JSON or a local module. Module plugins should use the public helper from `desloppify/plugin-api` and declare metadata.
 
 ```js
-module.exports = {
+const { definePlugin, PLUGIN_API_VERSION } = require("desloppify/plugin-api")
+
+module.exports = definePlugin({
+  meta: {
+    name: "local-plugin",
+    namespace: "local",
+    apiVersion: PLUGIN_API_VERSION
+  },
   rules: [
     {
       id: "contains-acme",
@@ -266,7 +274,7 @@ module.exports = {
       }
     }
   }
-}
+})
 ```
 
 Then reference a preset with:
@@ -277,6 +285,8 @@ Then reference a preset with:
   "extends": ["plugin:local/recommended"]
 }
 ```
+
+Module plugin validation now checks `apiVersion`, namespace mismatches, and duplicate/non-local rule ids. This keeps local plugins deterministic and gives better failure messages during scan/rules/score.
 
 This lets you tune built-in rules without forking the tool. It is the first step toward reference-repo-style config/plugin extensibility.
 

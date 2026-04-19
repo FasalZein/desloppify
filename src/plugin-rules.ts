@@ -1,24 +1,13 @@
 import { existsSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { extname, relative, resolve, sep } from "node:path";
 import type { FileEntry } from "./analyzers/file-walker";
 import { matchesConfigGlob, type DesloppifyConfig } from "./config";
+import { PLUGIN_API_VERSION, type DesloppifyPlugin, type DesloppifyPluginRuleSpec } from "./plugin-api";
 import type { Category, Issue, Severity } from "./types";
 import type { RuleCatalogEntry } from "./rule-catalog";
 
-export interface LocalPluginRuleSpec {
-  id: string;
-  category: Category;
-  severity: Severity;
-  message: string;
-  description?: string;
-  pattern: string;
-  flags?: string;
-  files?: string[];
-  tier?: number;
-}
-
-export interface LocalPluginModule {
-  rules?: LocalPluginRuleSpec[];
+interface LegacyPluginFile {
+  rules?: DesloppifyPluginRuleSpec[];
   configs?: Record<string, DesloppifyConfig>;
 }
 
@@ -36,14 +25,38 @@ export interface LoadedPluginRule {
 
 export interface LoadedPluginModuleEntry {
   namespace: string;
-  plugin: LocalPluginModule;
+  plugin: DesloppifyPlugin;
 }
 
 export function loadConfiguredPlugins(config: DesloppifyConfig, rootPath: string): LoadedPluginModuleEntry[] {
-  return Object.entries(config.plugins ?? {}).map(([namespace, ref]) => ({
-    namespace,
-    plugin: loadPluginModule(rootPath, ref),
-  }));
+  return Object.entries(config.plugins ?? {}).map(([namespace, ref]) => {
+    const plugin = loadPluginModule(rootPath, ref);
+    validatePlugin(namespace, plugin, ref);
+    return { namespace, plugin };
+  });
+}
+
+function validatePlugin(namespace: string, plugin: DesloppifyPlugin, ref: string): void {
+  if (!plugin.meta.name) {
+    throw new Error(`Plugin metadata must include meta.name: ${ref}`);
+  }
+  if (plugin.meta.apiVersion !== PLUGIN_API_VERSION) {
+    throw new Error(`Unsupported plugin apiVersion for ${ref}: ${plugin.meta.apiVersion}`);
+  }
+  if (plugin.meta.namespace && plugin.meta.namespace !== namespace) {
+    throw new Error(`Plugin namespace mismatch for ${ref}: expected ${namespace}, got ${plugin.meta.namespace}`);
+  }
+
+  const ids = new Set<string>();
+  for (const rule of plugin.rules ?? []) {
+    if (!rule.id || rule.id.includes("/")) {
+      throw new Error(`Plugin rule ids must be local ids without namespace: ${namespace}/${rule.id}`);
+    }
+    if (ids.has(rule.id)) {
+      throw new Error(`Duplicate plugin rule id: ${namespace}/${rule.id}`);
+    }
+    ids.add(rule.id);
+  }
 }
 
 export function loadConfigPluginRules(config: DesloppifyConfig, rootPath: string): LoadedPluginRule[] {
@@ -90,14 +103,35 @@ export function resolvePluginConfigExtends(extendsRefs: string[] | undefined, co
   return merged;
 }
 
-function loadPluginModule(rootPath: string, ref: string): LocalPluginModule {
+function loadPluginModule(rootPath: string, ref: string): DesloppifyPlugin {
   const pluginPath = resolve(rootPath, ref);
   if (!existsSync(pluginPath)) {
     throw new Error(`Cannot resolve plugin: ${ref}`);
   }
 
-  const loaded = require(pluginPath) as LocalPluginModule | { default?: LocalPluginModule };
-  return (loaded as { default?: LocalPluginModule }).default ?? (loaded as LocalPluginModule);
+  const loaded = require(pluginPath) as DesloppifyPlugin | LegacyPluginFile | { default?: DesloppifyPlugin | LegacyPluginFile };
+  const plugin = (loaded as { default?: DesloppifyPlugin | LegacyPluginFile }).default ?? loaded;
+  return normalizePlugin(pluginPath, plugin as DesloppifyPlugin | LegacyPluginFile);
+}
+
+function normalizePlugin(pluginPath: string, plugin: DesloppifyPlugin | LegacyPluginFile): DesloppifyPlugin {
+  if (isPluginModule(plugin)) return plugin;
+  if (extname(pluginPath) === ".json") {
+    return {
+      meta: {
+        name: pluginPath.split(sep).at(-1) ?? "local-plugin",
+        apiVersion: PLUGIN_API_VERSION,
+      },
+      rules: plugin.rules,
+      configs: plugin.configs,
+    };
+  }
+
+  throw new Error(`Plugin modules must export definePlugin(...) metadata: ${pluginPath}`);
+}
+
+function isPluginModule(plugin: DesloppifyPlugin | LegacyPluginFile): plugin is DesloppifyPlugin {
+  return typeof (plugin as DesloppifyPlugin).meta?.apiVersion === "number";
 }
 
 export function getConfigPluginRuleCatalog(rules: LoadedPluginRule[]): RuleCatalogEntry[] {

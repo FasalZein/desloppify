@@ -145,9 +145,9 @@ export function getRuleSeverityOverride(config: DesloppifyConfig, ruleId: string
 
 export function getConfigExample(): string {
   return JSON.stringify({
-    extends: ["./desloppify.base.json"],
+    extends: ["./desloppify.base.json", "plugin:local/recommended"],
     plugins: {
-      local: "./desloppify.plugin.json",
+      local: "./desloppify.plugin.cjs",
     },
     rules: {
       CONSOLE_LOG: { enabled: false },

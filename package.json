@@ -6,6 +6,11 @@
   "bin": {
     "desloppify": "bin/desloppify.js"
   },
+  "exports": {
+    "./plugin-api": "./src/plugin-api.ts",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
   "files": [
     "bin/",
     "src/",
