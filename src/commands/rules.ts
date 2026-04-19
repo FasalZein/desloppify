@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { isRuleInPack, resolvePackSelection } from "../packs";
+import { GREP_EXTENDED_RULE_CATALOG } from "../analyzers/grep-extended-rules";
 
 const RULES = [
   // dead-code
@@ -138,57 +139,8 @@ const RULES = [
   { id: "MANY_USESTATE", category: "complexity", tier: 0, tool: "file-metrics", desc: "6+ useState in one component" },
   { id: "VERB_IN_ROUTE", category: "inconsistency", tier: 0, tool: "file-metrics", desc: "Verb in REST route path — use nouns" },
 
-  // test-quality
-  { id: "EMPTY_TEST", category: "test-quality", tier: 0, tool: "grep", desc: "Empty test body — passes but checks nothing" },
-  { id: "WEAK_ASSERTION", category: "test-quality", tier: 0, tool: "grep", desc: "Weak assertion — tests existence not value" },
-  { id: "ASSERT_TRUE", category: "test-quality", tier: 0, tool: "grep", desc: "Tautological assert True — always passes" },
-  { id: "SLEEPY_TEST", category: "test-quality", tier: 0, tool: "grep", desc: "Sleep in test — use waitFor instead" },
-  { id: "SKIPPED_TEST", category: "test-quality", tier: 0, tool: "grep", desc: "Skipped test — resolve or remove" },
-  { id: "SNAPSHOT_OVERUSE", category: "test-quality", tier: 0, tool: "grep", desc: "Snapshot test — brittle, assert on values" },
-
-  // async-correctness
-  { id: "FOREACH_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "async in forEach — promises fire-and-forget" },
-  { id: "ASYNC_PROMISE_EXECUTOR", category: "async-correctness", tier: 0, tool: "grep", desc: "async Promise executor — avoid async inside new Promise" },
-  { id: "USEEFFECT_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "async useEffect callback — wrap async work inside" },
-  { id: "REDUNDANT_RETURN_AWAIT", category: "async-correctness", tier: 0, tool: "grep", desc: "return await on direct promise" },
-  { id: "BARE_ASYNC_MAP", category: "async-correctness", tier: 0, tool: "grep", desc: "async map result not obviously awaited" },
-  { id: "REQUESTS_IN_ASYNC", category: "async-correctness", tier: 0, tool: "grep", desc: "Blocking requests in async — use httpx" },
-  { id: "SEQUENTIAL_AWAIT", category: "async-correctness", tier: 0, tool: "grep", desc: "Sequential awaits — use Promise.all()" },
-  { id: "CALLBACK_PROMISE_MIX", category: "async-correctness", tier: 0, tool: "grep", desc: "Mixing .then() with async/await" },
-
-  // runtime-validation
-  { id: "UNVALIDATED_BODY", category: "runtime-validation", tier: 0, tool: "grep", desc: "req.body cast without runtime validation" },
-  { id: "JSON_PARSE_CAST", category: "runtime-validation", tier: 0, tool: "grep", desc: "JSON.parse cast without validation" },
-  { id: "FETCH_RESPONSE_CAST", category: "runtime-validation", tier: 0, tool: "grep", desc: "Fetch response cast without validation" },
-  { id: "LOCALSTORAGE_CAST", category: "runtime-validation", tier: 0, tool: "grep", desc: "localStorage cast without validation" },
-
-  // accessibility
-  { id: "INTERACTIVE_DIV", category: "accessibility", tier: 0, tool: "grep", desc: "onClick on <div> — use <button>" },
-  { id: "INTERACTIVE_SPAN", category: "accessibility", tier: 0, tool: "grep", desc: "onClick on <span> — use <button>" },
-  { id: "IMG_NO_ALT", category: "accessibility", tier: 0, tool: "grep", desc: "Image without alt attribute — WCAG A" },
-  { id: "MEANINGLESS_ALT", category: "accessibility", tier: 0, tool: "grep", desc: "Meaningless alt text (image/photo/icon)" },
-  { id: "INPUT_NO_LABEL", category: "accessibility", tier: 0, tool: "grep", desc: "Input with placeholder but no label" },
-
-  // naming-semantics
-  { id: "NUMERIC_SUFFIX", category: "naming-semantics", tier: 0, tool: "grep", desc: "Numeric suffix — rename to describe diff" },
-  { id: "BUILTIN_SHADOW", category: "naming-semantics", tier: 0, tool: "grep", desc: "Variable shadows Python builtin" },
-
-  // additional security
-  { id: "EVAL_EXEC", category: "security-slop", tier: 0, tool: "grep", desc: "eval()/exec() — arbitrary code execution" },
-  { id: "PICKLE_LOADS", category: "security-slop", tier: 0, tool: "grep", desc: "pickle.load — RCE on untrusted data" },
-  { id: "JSON_DEEP_CLONE", category: "ai-slop", tier: 0, tool: "grep", desc: "JSON stringify/parse deep clone" },
-  { id: "HANDWAVY_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Handwavy workaround comment" },
-  { id: "NOT_IMPLEMENTED_STUB", category: "ai-slop", tier: 1, tool: "grep", desc: "Not-implemented JS/TS stub" },
-
-  // additional python
-  { id: "MUTABLE_DEFAULT", category: "defensive-programming", tier: 0, tool: "grep", desc: "Mutable default argument — shared state" },
-  { id: "ITERROWS", category: "complexity", tier: 0, tool: "grep", desc: "pandas iterrows — use vectorized ops" },
-
-  // additional frontend
-  { id: "FULL_LODASH_IMPORT", category: "complexity", tier: 0, tool: "grep", desc: "Full lodash import — import specific fns" },
-  { id: "MOMENT_IMPORT", category: "legacy-code", tier: 0, tool: "grep", desc: "moment.js deprecated — use date-fns/dayjs" },
-  { id: "TAILWIND_HARDCODED_COLOR", category: "inconsistency", tier: 0, tool: "grep", desc: "Hardcoded hex in Tailwind className" },
-  { id: "INLINE_STYLE", category: "inconsistency", tier: 0, tool: "grep", desc: "Inline style for layout/color" },
+  // migrated grep-extended family
+  ...GREP_EXTENDED_RULE_CATALOG,
 ];
 
 export default defineCommand({
