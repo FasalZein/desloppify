@@ -67,6 +67,8 @@ desloppify scan [path] --pack python              # first non-JS pack for Python
 # artifacts are written under .desloppify/reports/
 desloppify scan [path] --json --pack js-ts        # normalized findings JSON
 desloppify scan [path] --markdown --pack js-ts    # readable markdown report
+desloppify report [path]                          # normalized metrics + path hotspots from latest saved scan
+desloppify report [path] --json                   # emit the saved findings report JSON directly
 desloppify scan [path] --wiki --project <project> --pack js-ts
                                                  # wiki-forge review JSON with project context
 desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack js-ts
@@ -86,8 +88,9 @@ desloppify rules --pack python                    # inspect the python bundle di
 
 After a normal scan, read these in order:
 1. `.desloppify/reports/latest.findings.json`
-2. `.desloppify/reports/latest.report.md`
-3. `.desloppify/reports/latest.wiki.json` or `.desloppify/reports/latest.handoff.md`
+2. `desloppify report .`
+3. `.desloppify/reports/latest.report.md`
+4. `.desloppify/reports/latest.wiki.json` or `.desloppify/reports/latest.handoff.md`
 
 Pretty scan mode also shows the current score, grade, and concrete next actions in the terminal.
 
@@ -226,6 +229,8 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify scan [path] --pack python` | Python pack scan |
 | `desloppify scan --json --pack js-ts` | Normalized findings JSON |
 | `desloppify scan --markdown --pack js-ts` | Readable markdown report |
+| `desloppify report [path]` | Normalized metrics + path hotspots from latest saved scan |
+| `desloppify report [path] --json` | Emit the saved findings report JSON |
 | `desloppify scan --wiki --project <project> --pack js-ts` | Wiki-forge review JSON |
 | `desloppify scan --handoff --project <project> --slice <slice-id> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |
@@ -265,7 +270,7 @@ Project-level: `.desloppifyignore` (gitignore syntax).
 
 A normal `desloppify scan ...` run writes:
 
-- `.desloppify/reports/latest.findings.json`
+- `.desloppify/reports/latest.findings.json` (canonical scan JSON, now including normalized metrics + path hotspots)
 - `.desloppify/reports/latest.report.md`
 - `.desloppify/reports/latest.wiki.json`
 - `.desloppify/reports/latest.handoff.md`

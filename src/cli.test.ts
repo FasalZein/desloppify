@@ -22,4 +22,15 @@ describe("cli entrypoints", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.toString().trim()).toBe("1.0.1");
   });
+
+  test("loads report subcommand", () => {
+    const result = Bun.spawnSync(["bun", "src/cli.ts", "report", "--help"], {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toString()).toContain("Render normalized metrics from a saved scan report");
+  });
 });

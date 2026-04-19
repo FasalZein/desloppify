@@ -98,6 +98,24 @@ export interface Finding {
   metadata?: Record<string, unknown>;
 }
 
+export interface ScanMetricSummary {
+  fileCount: number;
+  lineCount: number;
+  nonEmptyLineCount: number;
+  normalized: {
+    scorePerFile: number | null;
+    scorePerKloc: number | null;
+    findingsPerFile: number | null;
+    findingsPerKloc: number | null;
+  };
+}
+
+export interface PathHotspot {
+  path: string;
+  findingCount: number;
+  penalty: number;
+}
+
 export interface ScanReport {
   schema_version: string;
   scan: {
@@ -114,6 +132,10 @@ export interface ScanReport {
   };
   tools: ToolStatus;
   score: number;
+  metrics: ScanMetricSummary;
+  hotspots: {
+    paths: PathHotspot[];
+  };
   summary: { critical: number; high: number; medium: number; low: number };
   categories: Partial<Record<Category, CategorySummary>>;
   rules: Record<string, RuleDefinition>;

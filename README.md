@@ -20,6 +20,7 @@ bunx desloppify setup
 
 # 4) Run the scanner
 bunx desloppify scan . --pack js-ts
+bunx desloppify report .
 bunx desloppify score . --pack js-ts
 # or, for Python repos:
 bunx desloppify scan . --pack python
@@ -111,6 +112,8 @@ desloppify scan [path] --category complexity --pack js-ts
 desloppify scan [path] --architecture modular-monolith --pack js-ts
 desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
+desloppify report [path]                        # normalized metrics + path hotspots from latest saved scan
+desloppify report [path] --json                 # emit the saved findings report JSON directly
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --pack python           # weighted quality grade for Python scans
 desloppify delta [base] [head] --json           # compare saved findings reports across two repos or report paths
@@ -154,14 +157,14 @@ Set `DESLOPPIFY_PACK=<pack>` if you need a different pack in hook runs.
 
 A normal `desloppify scan ...` run writes artifacts to:
 
-- `.desloppify/reports/latest.findings.json`
+- `.desloppify/reports/latest.findings.json` (canonical scan JSON, now including normalized metrics + path hotspots)
 - `.desloppify/reports/latest.report.md`
 - `.desloppify/reports/latest.wiki.json`
 - `.desloppify/reports/latest.handoff.md`
 - `.desloppify/reports/latest.delta.md` (from `desloppify delta --markdown`)
 - `.desloppify/reports/latest.delta.comment.md` (from `desloppify delta --comment`)
 
-The CLI also prints these paths after the scan so agents and humans know exactly what to read next.
+The CLI also prints these paths after the scan so agents and humans know exactly what to read next. Use `desloppify report .` when you want a compact normalized summary from the latest saved scan.
 
 Pretty scan mode also shows:
 - the current score / grade

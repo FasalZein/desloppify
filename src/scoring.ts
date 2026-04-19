@@ -1,5 +1,12 @@
 import type { Issue } from "./types";
 
+export function getIssuePenalty(issue: Issue): number {
+  const sevPoints = SEVERITY_POINTS[issue.severity] ?? 1;
+  const catWeight = CATEGORY_WEIGHTS[issue.category] ?? 1.0;
+  const ruleWeight = issue.scoreWeight ?? 1.0;
+  return sevPoints * catWeight * ruleWeight;
+}
+
 export const SEVERITY_POINTS: Record<string, number> = {
   CRITICAL: 5,
   HIGH: 3,
@@ -46,10 +53,8 @@ export function calculateScore(issues: Issue[]): {
   const categoryScores: Record<string, { count: number; penalty: number; weight: number }> = {};
 
   for (const issue of issues) {
-    const sevPoints = SEVERITY_POINTS[issue.severity] ?? 1;
     const catWeight = CATEGORY_WEIGHTS[issue.category] ?? 1.0;
-    const ruleWeight = issue.scoreWeight ?? 1.0;
-    const penalty = sevPoints * catWeight * ruleWeight;
+    const penalty = getIssuePenalty(issue);
 
     if (!categoryScores[issue.category]) {
       categoryScores[issue.category] = { count: 0, penalty: 0, weight: catWeight };

@@ -5,12 +5,19 @@ import type {
   Finding,
   Issue,
   PackSelection,
+  PathHotspot,
   RuleDefinition,
   ScanReport,
   ToolStatus,
 } from "./types";
 import { buildArchitectureSummary } from "./architecture";
-import { calculateScore } from "./scoring";
+import { calculateScore, getIssuePenalty } from "./scoring";
+
+export interface ScanInputMetrics {
+  fileCount: number;
+  lineCount: number;
+  nonEmptyLineCount: number;
+}
 
 function toFindingLevel(severity: Issue["severity"]): Finding["level"] {
   if (severity === "CRITICAL" || severity === "HIGH") return "error";
@@ -41,6 +48,49 @@ function ruleName(ruleId: string): string {
     .filter(Boolean)
     .map((part) => (part[0] ? part[0].toUpperCase() + part.slice(1) : part))
     .join(" ");
+}
+
+function safeDivide(value: number, denominator: number): number | null {
+  if (denominator <= 0) return null;
+  return Math.round((value / denominator) * 100) / 100;
+}
+
+function buildMetricSummary(issues: Issue[], score: number, inputMetrics?: ScanInputMetrics) {
+  const fileCount = inputMetrics?.fileCount ?? new Set(issues.map((issue) => issue.file)).size;
+  const lineCount = inputMetrics?.lineCount ?? 0;
+  const nonEmptyLineCount = inputMetrics?.nonEmptyLineCount ?? 0;
+  const kloc = nonEmptyLineCount / 1000;
+
+  return {
+    fileCount,
+    lineCount,
+    nonEmptyLineCount,
+    normalized: {
+      scorePerFile: safeDivide(score, fileCount),
+      scorePerKloc: safeDivide(score, kloc),
+      findingsPerFile: safeDivide(issues.length, fileCount),
+      findingsPerKloc: safeDivide(issues.length, kloc),
+    },
+  };
+}
+
+function buildPathHotspots(issues: Issue[]): PathHotspot[] {
+  const grouped = new Map<string, PathHotspot>();
+
+  for (const issue of issues) {
+    const current = grouped.get(issue.file) ?? { path: issue.file, findingCount: 0, penalty: 0 };
+    current.findingCount += 1;
+    current.penalty += getIssuePenalty(issue);
+    grouped.set(issue.file, current);
+  }
+
+  return [...grouped.values()]
+    .map((hotspot) => ({
+      ...hotspot,
+      penalty: Math.round(hotspot.penalty * 100) / 100,
+    }))
+    .sort((left, right) => right.penalty - left.penalty || right.findingCount - left.findingCount || left.path.localeCompare(right.path))
+    .slice(0, 5);
 }
 
 export function issueToRule(issue: Issue): RuleDefinition {
@@ -103,6 +153,7 @@ export function buildScanReport(
   issues: Issue[],
   pack: PackSelection,
   architecture?: string,
+  inputMetrics?: ScanInputMetrics,
 ): ScanReport {
   const normalizedIssues = dedupeIssues(issues);
   const summary = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -123,6 +174,10 @@ export function buildScanReport(
   }, {});
   const findings = normalizedIssues.map(issueToFinding);
   const { score } = calculateScore(normalizedIssues);
+  const metrics = buildMetricSummary(normalizedIssues, score, inputMetrics);
+  const hotspots = {
+    paths: buildPathHotspots(normalizedIssues),
+  };
 
   return {
     schema_version: "desloppify.findings/v1",
@@ -135,6 +190,8 @@ export function buildScanReport(
     architecture: buildArchitectureSummary(architecture, issues),
     tools,
     score,
+    metrics,
+    hotspots,
     summary,
     categories,
     rules,

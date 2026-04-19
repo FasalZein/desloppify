@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ScanReport } from "./types";
 
 describe("types", () => {
-  test("ScanReport shape supports architecture summaries and normalized findings", () => {
+  test("ScanReport shape supports architecture summaries, metrics, hotspots, and normalized findings", () => {
     const report: ScanReport = {
       schema_version: "desloppify.findings/v1",
       scan: {
@@ -26,6 +26,20 @@ describe("types", () => {
         biome: true,
       },
       score: 95,
+      metrics: {
+        fileCount: 4,
+        lineCount: 40,
+        nonEmptyLineCount: 20,
+        normalized: {
+          scorePerFile: 23.75,
+          scorePerKloc: 4750,
+          findingsPerFile: 0.25,
+          findingsPerKloc: 50,
+        },
+      },
+      hotspots: {
+        paths: [{ path: "/repo/src/a.ts", findingCount: 1, penalty: 1 }],
+      },
       summary: { critical: 0, high: 0, medium: 0, low: 0 },
       categories: {},
       rules: {
@@ -64,6 +78,8 @@ describe("types", () => {
 
     expect(report.scan.pack.name).toBe("js-ts");
     expect(report.architecture?.profile).toBe("modular-monolith");
+    expect(report.metrics.normalized.findingsPerFile).toBe(0.25);
+    expect(report.hotspots.paths[0]?.path).toBe("/repo/src/a.ts");
     expect(report.findings[0]?.rule_id).toBe("TEST_RULE");
   });
 
@@ -85,6 +101,18 @@ describe("types", () => {
         biome: false,
       },
       score: 100,
+      metrics: {
+        fileCount: 1,
+        lineCount: 1,
+        nonEmptyLineCount: 1,
+        normalized: {
+          scorePerFile: 100,
+          scorePerKloc: 100000,
+          findingsPerFile: 0,
+          findingsPerKloc: 0,
+        },
+      },
+      hotspots: { paths: [] },
       summary: { critical: 0, high: 0, medium: 0, low: 0 },
       categories: {},
       rules: {},

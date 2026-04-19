@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { calculateScore, getGrade } from "./scoring";
+import { calculateScore, getGrade, getIssuePenalty } from "./scoring";
 import type { Issue } from "./types";
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -45,6 +45,10 @@ describe("scoring", () => {
     expect(result.penalty).toBe(12);
     expect(result.score).toBe(88);
     expect(result.grade).toBe("A");
+  });
+
+  test("computes per-issue penalty with category and rule weights", () => {
+    expect(getIssuePenalty(issue({ category: "security-slop", severity: "HIGH", scoreWeight: 2 }))).toBe(12);
   });
 
   test("maps score ranges", () => {

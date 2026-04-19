@@ -126,7 +126,11 @@ export default defineCommand({
     const elapsed = performance.now() - t0;
 
     const previousReport = loadSavedScanReport(targetPath);
-    const report = buildScanReport(targetPath, tools, filtered, pack, architecture);
+    const report = buildScanReport(targetPath, tools, filtered, pack, architecture, {
+      fileCount: entries.length,
+      lineCount: entries.reduce((sum, entry) => sum + entry.lines.length, 0),
+      nonEmptyLineCount: entries.reduce((sum, entry) => sum + entry.lines.filter((line) => line.trim().length > 0).length, 0),
+    });
     const deltaReport = previousReport ? compareScanReports(previousReport, report) : null;
     const wikiReport = buildWikiReport(report, {
       project: args.project,
@@ -224,6 +228,7 @@ export default defineCommand({
     }
 
     const nextActions = [
+      `Show normalized report: desloppify report ${args.path}`,
       `Show the current score again: desloppify score ${args.path} --pack ${pack.name}`,
       filtered.length > 0
         ? `Read machine findings: cat ${artifacts.findingsJson}`
@@ -249,6 +254,8 @@ function formatMarkdown(report: ScanReport): string {
     `**Path:** ${report.scan.path}`,
     `**Pack:** ${report.scan.pack.name}`,
     report.architecture ? `**Architecture:** ${report.architecture.profile} (${report.architecture.fitScore}/100)` : "",
+    `**Files scanned:** ${report.metrics.fileCount}`,
+    `**Non-empty lines:** ${report.metrics.nonEmptyLineCount}`,
     "",
     "## Summary",
     `| Severity | Count |`,
@@ -258,12 +265,25 @@ function formatMarkdown(report: ScanReport): string {
     `| Medium | ${report.summary.medium} |`,
     `| Low | ${report.summary.low} |`,
     "",
+    "## Normalized Metrics",
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Score / file | ${report.metrics.normalized.scorePerFile ?? "n/a"} |`,
+    `| Score / KLOC | ${report.metrics.normalized.scorePerKloc ?? "n/a"} |`,
+    `| Findings / file | ${report.metrics.normalized.findingsPerFile ?? "n/a"} |`,
+    `| Findings / KLOC | ${report.metrics.normalized.findingsPerKloc ?? "n/a"} |`,
+    "",
     "## Categories",
     `| Category | Issues | Fixable |`,
     `|----------|--------|---------|`,
     ...Object.entries(report.categories).map(
       ([cat, s]) => `| ${cat} | ${s.count} | ${s.fixable} |`
     ),
+    "",
+    "## Path Hotspots",
+    `| Path | Findings | Penalty |`,
+    `|------|----------|---------|`,
+    ...report.hotspots.paths.map((hotspot) => `| ${hotspot.path} | ${hotspot.findingCount} | ${hotspot.penalty} |`),
     "",
     "## Issues",
     "",
@@ -287,3 +307,5 @@ function formatMarkdown(report: ScanReport): string {
 
   return lines.join("\n");
 }
+
+export { formatMarkdown };

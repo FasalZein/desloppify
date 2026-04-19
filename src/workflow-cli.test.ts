@@ -71,11 +71,15 @@ describe("CLI workflow", () => {
     const result = runCli(["scan", root, "--pack", "js-ts"]);
     const output = squashWhitespace(stripAnsi(result.stdout.toString()));
     const { findingsPath, wikiPath } = expectArtifacts(root);
+    const savedReport = JSON.parse(readFileSync(findingsPath, "utf8"));
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain("Findings JSON:");
     expect(output).toContain("Readable report:");
     expect(readFileSync(findingsPath, "utf8")).toContain("CONSOLE_LOG");
+    expect(savedReport.metrics.fileCount).toBe(1);
+    expect(savedReport.metrics.normalized.findingsPerFile).toBe(1);
+    expect(savedReport.hotspots.paths[0].path).toContain("src/example.ts");
     const wikiArtifact = JSON.parse(readFileSync(wikiPath, "utf8"));
     expect(wikiArtifact.workflowCommands[0].exec).toEqual({
       command: "cat",
