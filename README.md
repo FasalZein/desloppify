@@ -114,7 +114,8 @@ desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify report [path]                        # normalized metrics + path hotspots from latest saved scan
 desloppify report [path] --json                 # emit the saved findings report JSON directly
-desloppify benchmark snapshot --manifest <file> # build benchmark snapshot JSON from a local cohort manifest
+desloppify benchmark fetch --manifest <file>    # clone/fetch pinned benchmark checkouts from a manifest
+desloppify benchmark snapshot --manifest <file> # build benchmark snapshot JSON from a benchmark manifest
 desloppify benchmark report --manifest <file>   # render markdown cohort report from that snapshot
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --pack python           # weighted quality grade for Python scans
@@ -171,6 +172,7 @@ The CLI also prints these paths after the scan so agents and humans know exactly
 For cross-repo comparisons, use a benchmark manifest and run:
 
 ```bash
+desloppify benchmark fetch --manifest ./benchmarks/manifest.json
 desloppify benchmark snapshot --manifest ./benchmarks/manifest.json
 desloppify benchmark report --manifest ./benchmarks/manifest.json
 ```
@@ -194,18 +196,35 @@ Example benchmark manifest:
   "name": "Local cohort",
   "description": "Compare one explicit-AI repo against one mature OSS repo.",
   "artifacts": {
+    "checkoutsDir": "./checkouts",
     "snapshotPath": "./artifacts/benchmark.snapshot.json",
     "reportPath": "./artifacts/benchmark.report.md"
   },
   "repos": [
-    { "id": "ai", "path": "../repos/ai-repo", "cohort": "explicit-ai", "pack": "js-ts" },
-    { "id": "oss", "path": "../repos/oss-repo", "cohort": "mature-oss", "pack": "js-ts" }
+    {
+      "id": "ai",
+      "repo": "example/ai-repo",
+      "url": "https://github.com/example/ai-repo.git",
+      "ref": "<pinned-sha>",
+      "cohort": "explicit-ai",
+      "pack": "js-ts"
+    },
+    {
+      "id": "oss",
+      "repo": "example/oss-repo",
+      "url": "https://github.com/example/oss-repo.git",
+      "ref": "<pinned-sha>",
+      "cohort": "mature-oss",
+      "pack": "js-ts"
+    }
   ],
   "pairings": [
     { "aiRepoId": "ai", "solidRepoId": "oss" }
   ]
 }
 ```
+
+If you already have local repos instead of pinned remotes, you can still use `path` entries and skip `benchmark fetch`.
 
 ## Scoring
 

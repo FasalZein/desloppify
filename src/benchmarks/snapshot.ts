@@ -40,7 +40,9 @@ function summarizeRuleCounts(report: ScanReport): Record<string, number> {
 export function createRepoSnapshot(spec: BenchmarkSet["repos"][number], report: ScanReport): BenchmarkRepoSnapshot {
   return {
     id: spec.id,
-    path: spec.path,
+    path: spec.path ?? report.scan.path,
+    repo: spec.repo,
+    ref: spec.ref,
     cohort: spec.cohort,
     pack: spec.pack ?? report.scan.pack.name,
     score: report.score,

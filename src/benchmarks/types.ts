@@ -3,15 +3,22 @@ import type { PackName, PathHotspot, ScanMetricSummary, ScanReport } from "../ty
 export type BenchmarkCohort = "explicit-ai" | "mature-oss";
 
 export interface BenchmarkArtifacts {
+  checkoutsDir?: string;
   snapshotPath: string;
   reportPath: string;
 }
 
 export interface BenchmarkRepoSpec {
   id: string;
-  path: string;
+  path?: string;
+  repo?: string;
+  url?: string;
+  ref?: string;
   cohort: BenchmarkCohort;
   pack?: PackName;
+  createdAt?: string;
+  stars?: number;
+  provenance?: string;
   notes?: string;
 }
 
@@ -34,6 +41,8 @@ export interface BenchmarkSet {
 export interface BenchmarkRepoSnapshot {
   id: string;
   path: string;
+  repo?: string;
+  ref?: string;
   cohort: BenchmarkCohort;
   pack: PackName;
   score: number;
