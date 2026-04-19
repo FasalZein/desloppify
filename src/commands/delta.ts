@@ -45,6 +45,8 @@ export default defineCommand({
     "head-report": { type: "string", description: "Explicit head findings.json path" },
     json: { type: "boolean", description: "Machine-readable JSON output" },
     markdown: { type: "boolean", description: "Regressions-only markdown output" },
+    comment: { type: "boolean", description: "Compact PR/CI comment markdown output" },
+    "max-findings": { type: "string", description: "Maximum regressions to include in compact comment output" },
     category: { type: "string", description: "Limit delta output to one category" },
     path: { type: "string", description: "Limit delta output to one path or glob" },
     severity: { type: "string", description: "Limit delta output to one or more severities" },
@@ -61,9 +63,17 @@ export default defineCommand({
     const failOn = parseFailOn(args["fail-on"]);
 
     const jsonReport = buildDeltaCommandJson(baseReport, headReport, scopedDelta, scope);
+    const maxFindings = parseMaxFindings(args["max-findings"]);
 
     if (args.json) {
       console.log(JSON.stringify(jsonReport, null, 2));
+      process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
+    }
+
+    if (args.comment) {
+      const comment = formatDeltaComment(baseReport, headReport, scopedDelta, scope, maxFindings);
+      writeFileSync(getDeltaCommentArtifactPath(headReportPath), `${comment}\n`, "utf8");
+      console.log(comment);
       process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
     }
 
@@ -147,8 +157,21 @@ function parseFailOn(input: string | undefined): DeltaStatus[] {
   return values as DeltaStatus[];
 }
 
+function parseMaxFindings(input: string | undefined): number {
+  if (!input) return 8;
+  const parsed = Number.parseInt(input, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    throw new Error(`Invalid max-findings: ${input}`);
+  }
+  return parsed;
+}
+
 function getDeltaMarkdownArtifactPath(headReportPath: string): string {
   return join(dirname(headReportPath), "latest.delta.md");
+}
+
+function getDeltaCommentArtifactPath(headReportPath: string): string {
+  return join(dirname(headReportPath), "latest.delta.comment.md");
 }
 
 function parseScope(categoryInput: string | undefined, pathInput: string | undefined, severityInput: string | undefined): DeltaScope {
@@ -214,6 +237,39 @@ function regressionDelta(delta: ScanDeltaReport): ScanDeltaReport {
     summary: buildSummary(changes),
     changes,
   };
+}
+
+function formatDeltaComment(base: ScanReport, head: ScanReport, delta: ScanDeltaReport, scope: DeltaScope, maxFindings: number): string {
+  const regressions = regressionDelta(delta);
+  const ranked = [...regressions.changes].sort(compareRegressionPriority);
+  const shown = ranked.slice(0, maxFindings);
+  const hiddenCount = Math.max(0, ranked.length - shown.length);
+  const lines = [
+    "# Desloppify delta comment",
+    "",
+    `- Base: ${base.scan.path}`,
+    `- Head: ${head.scan.path}`,
+    scope.category || scope.path || (scope.severities?.length ?? 0) > 0 ? `- Scope: ${formatScope(scope)}` : null,
+    `- Added: ${regressions.summary.addedCount}`,
+    `- Worsened: ${regressions.summary.worsenedCount}`,
+    `- Showing: ${shown.length}/${ranked.length} regressions`,
+  ].filter((line): line is string => Boolean(line));
+
+  if (shown.length > 0) {
+    lines.push("", "## Top regressions");
+    for (const change of shown) {
+      const severity = scopedSeverity(change) ?? "UNKNOWN";
+      lines.push(`- [${severity}] ${change.status.toUpperCase()} ${change.ruleId} ${describePath(change)}${describeMessage(change)}`);
+    }
+  } else {
+    lines.push("", "No added or worsened findings in scope.");
+  }
+
+  if (hiddenCount > 0) {
+    lines.push("", `...and ${hiddenCount} more regression(s).`);
+  }
+
+  return lines.join("\n");
 }
 
 function formatDeltaMarkdown(base: ScanReport, head: ScanReport, delta: ScanDeltaReport, scope: DeltaScope): string {
@@ -329,6 +385,31 @@ function scopedSeverity(change: ScanDeltaReport["changes"][number]): Severity | 
     case "unchanged":
       return change.head?.severity ?? change.base?.severity ?? null;
   }
+}
+
+function severityRank(severity: Severity | null): number {
+  switch (severity) {
+    case "CRITICAL":
+      return 4;
+    case "HIGH":
+      return 3;
+    case "MEDIUM":
+      return 2;
+    case "LOW":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function compareRegressionPriority(left: ScanDeltaReport["changes"][number], right: ScanDeltaReport["changes"][number]): number {
+  return (
+    severityRank(scopedSeverity(right)) - severityRank(scopedSeverity(left)) ||
+    Number(right.status === "worsened") - Number(left.status === "worsened") ||
+    describePath(left).localeCompare(describePath(right)) ||
+    left.ruleId.localeCompare(right.ruleId) ||
+    describeMessage(left).localeCompare(describeMessage(right))
+  );
 }
 
 function buildSummary(changes: ScanDeltaReport["changes"]): ScanDeltaReport["summary"] {

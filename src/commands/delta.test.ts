@@ -54,6 +54,8 @@ describe("delta command", () => {
     expect(command.args).toHaveProperty("base-report");
     expect(command.args).toHaveProperty("head-report");
     expect(command.args).toHaveProperty("markdown");
+    expect(command.args).toHaveProperty("comment");
+    expect(command.args).toHaveProperty("max-findings");
     expect(command.args).toHaveProperty("category");
     expect(command.args).toHaveProperty("path");
     expect(command.args).toHaveProperty("severity");
@@ -188,11 +190,13 @@ describe("delta command", () => {
     tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-markdown-"));
     const base = join(tempRoot, "base");
     const head = join(tempRoot, "head");
-    writeReport(base, [issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" })]);
+    writeReport(base, [
+      issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" }),
+      issue({ id: "RESOLVED_OLD", category: "dead-code", severity: "MEDIUM", file: "/repo/src/old.ts" }),
+    ]);
     writeReport(head, [
       issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" }),
       issue({ id: "NEW_HIGH", category: "security-slop", severity: "HIGH", file: "/repo/src/high.ts" }),
-      issue({ id: "RESOLVED_OLD", category: "dead-code", severity: "MEDIUM", file: "/repo/src/old.ts" }),
     ]);
 
     const result = run([base, head, "--severity", "high,critical", "--markdown"]);
@@ -206,5 +210,31 @@ describe("delta command", () => {
     expect(output).not.toContain("resolved");
     expect(existsSync(artifact)).toBe(true);
     expect(readFileSync(artifact, "utf8")).toContain("# Desloppify regressions");
+  });
+
+  test("emits compact comment markdown with capped findings and saves a comment artifact", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-comment-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, []);
+    writeReport(head, [
+      issue({ id: "LOW_ONE", severity: "LOW", file: "/repo/src/low.ts" }),
+      issue({ id: "HIGH_ONE", category: "security-slop", severity: "HIGH", file: "/repo/src/high.ts" }),
+      issue({ id: "CRITICAL_ONE", category: "security-slop", severity: "CRITICAL", file: "/repo/src/critical.ts" }),
+    ]);
+
+    const result = run([base, head, "--comment", "--max-findings", "2"]);
+    const output = result.stdout.toString();
+    const artifact = join(head, ".desloppify", "reports", "latest.delta.comment.md");
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("# Desloppify delta comment");
+    expect(output).toContain("- Showing: 2/3 regressions");
+    expect(output).toContain("[CRITICAL] ADDED CRITICAL_ONE");
+    expect(output).toContain("[HIGH] ADDED HIGH_ONE");
+    expect(output).not.toContain("LOW_ONE");
+    expect(output).toContain("...and 1 more regression(s).");
+    expect(existsSync(artifact)).toBe(true);
+    expect(readFileSync(artifact, "utf8")).toContain("# Desloppify delta comment");
   });
 });
