@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { isRuleInPack, resolvePackSelection } from "../packs";
 import { GREP_EXTENDED_RULE_CATALOG } from "../analyzers/grep-extended-rules";
+import { GREP_PATTERN_RULE_CATALOG } from "../analyzers/grep-pattern-rules";
 
 const RULES = [
   // dead-code
@@ -20,28 +21,9 @@ const RULES = [
   { id: "TYPE_IGNORE", category: "weak-types", tier: 0, tool: "grep", desc: "type: ignore / @ts-ignore suppression" },
 
   // ai-slop
-  { id: "BANNER_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "ASCII banner separator" },
-  { id: "NARRATION_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Process narration comment" },
-  { id: "APOLOGETIC_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Apologetic/suggestive comment" },
-  { id: "OBVIOUS_JSX_LABEL", category: "ai-slop", tier: 1, tool: "grep", desc: "JSX comment restating the tag name" },
-  { id: "DEMO_PLACEHOLDER", category: "ai-slop", tier: 1, tool: "grep", desc: "Demo/placeholder/mock data marker" },
   { id: "CONSOLE_LOG", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "console.log in production code" },
-  { id: "HEDGING_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Uncertainty hedging — 'should work', 'hopefully'" },
-  { id: "SECTION_LABEL_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Section label in flat file — // Setup, // Cleanup" },
-  { id: "INSTRUCTIONAL_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Tutorial voice — 'Make sure to', 'Don't forget'" },
-  { id: "STATED_RETURN_COMMENT", category: "ai-slop", tier: 1, tool: "grep", desc: "Comment narrates the return value" },
-  { id: "TRIPLE_NULL_GUARD", category: "ai-slop", tier: 2, tool: "grep", desc: "Triple null/undefined/empty guard" },
-  { id: "EXPLICIT_TRUE_COMPARE", category: "ai-slop", tier: 1, tool: "grep", desc: "Redundant === true/false comparison" },
-  { id: "RETURN_UNDEFINED", category: "ai-slop", tier: 1, tool: "grep", desc: "Explicit return undefined — just return;" },
-  { id: "PLACEHOLDER_VAR_NAME", category: "ai-slop", tier: 0, tool: "grep", desc: "Meaningless variable name — data2, temp1, foo" },
-  { id: "LINT_ESCAPE", category: "ai-slop", tier: 0, tool: "grep", desc: "Lint suppression instead of fixing the issue" },
-  { id: "ENTRY_EXIT_LOG", category: "ai-slop", tier: 1, tool: "grep", desc: "Function entry/exit debugging log" },
   { id: "PRINT_STATEMENT", category: "ai-slop", tier: 1, tool: "ast-grep", desc: "Python print() in production code" },
   { id: "PASS_STUB", category: "ai-slop", tier: 0, tool: "ast-grep", desc: "Python pass-only function body (stub)" },
-  { id: "DEBUG_BREAKPOINT", category: "ai-slop", tier: 1, tool: "grep", desc: "debugger/breakpoint/pdb.set_trace/dbg! left in code" },
-  { id: "FAKE_LOADING_DELAY", category: "ai-slop", tier: 1, tool: "grep", desc: "Artificial loading delay shipped in production code" },
-  { id: "UNNECESSARY_USECALLBACK", category: "ai-slop", tier: 1, tool: "grep", desc: "useCallback with empty deps and no captures" },
-  { id: "REDUNDANT_BOOLEAN_RETURN", category: "ai-slop", tier: 1, tool: "grep", desc: "if/else returns boolean literals — return condition directly" },
 
   // circular-deps
   { id: "CIRCULAR_IMPORT", category: "circular-deps", tier: 3, tool: "madge", desc: "Import cycle between modules" },
@@ -56,16 +38,11 @@ const RULES = [
   { id: "CATCH_LOG_CONTINUE", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "Catch logs and continues" },
   { id: "NOOP_CALLBACK", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "No-op callback fallback" },
   { id: "DEEP_OPTIONAL_CHAIN", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Optional chain 3+ deep" },
-  { id: "LOG_AND_RETHROW", category: "defensive-programming", tier: 2, tool: "grep", desc: "Catch-log-rethrow adds no value" },
   { id: "BARE_EXCEPT", category: "defensive-programming", tier: 2, tool: "ast-grep", desc: "Python bare except catches everything" },
   { id: "UNWRAP_CALL", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Rust .unwrap() can panic" },
   { id: "EXPECT_CALL", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Rust .expect() can panic" },
 
   // legacy-code
-  { id: "DEPRECATED_ANNOTATION", category: "legacy-code", tier: 2, tool: "grep", desc: "@deprecated code still present" },
-  { id: "TODO_REMOVE", category: "legacy-code", tier: 1, tool: "grep", desc: "TODO flagged for removal" },
-  { id: "DEAD_FEATURE_FLAG", category: "legacy-code", tier: 0, tool: "grep", desc: "Feature flag always on/off" },
-  { id: "FIXME_HACK_XXX", category: "legacy-code", tier: 0, tool: "grep", desc: "FIXME/HACK/XXX — known bad code" },
   { id: "TODO_MACRO", category: "legacy-code", tier: 0, tool: "ast-grep", desc: "Rust todo!()/unimplemented!() macro" },
 
   // type-fragmentation
@@ -79,44 +56,21 @@ const RULES = [
 
   // complexity
   { id: "LONG_FUNCTION", category: "complexity", tier: 0, tool: "grep", desc: "Function exceeds 50 lines" },
-  { id: "DEEP_NESTING", category: "complexity", tier: 0, tool: "grep", desc: "Conditional nesting 3+ levels" },
   { id: "MANY_PARAMS", category: "complexity", tier: 0, tool: "ast-grep", desc: "Function with 5+ parameters" },
-  { id: "NESTED_TERNARY", category: "complexity", tier: 0, tool: "grep", desc: "Nested ternary chain" },
 
   // security-slop
-  { id: "HARDCODED_SECRET", category: "security-slop", tier: 0, tool: "grep", desc: "Hardcoded password/secret/key/token" },
-  { id: "HARDCODED_URL", category: "security-slop", tier: 0, tool: "grep", desc: "Hardcoded localhost or API URL" },
-  { id: "SQL_INJECTION", category: "security-slop", tier: 0, tool: "grep", desc: "SQL string concatenation — use params" },
 
   // additional ai-slop
-  { id: "COMMENTED_CODE_BLOCK", category: "ai-slop", tier: 1, tool: "grep", desc: "Commented-out code line" },
-  { id: "PLACEHOLDER_VALUE", category: "ai-slop", tier: 0, tool: "grep", desc: "Placeholder value shipped in code" },
 
   // additional inconsistency
-  { id: "MIXED_IMPORT_STYLE", category: "inconsistency", tier: 0, tool: "grep", desc: "require() in ESM — use import" },
 
   // additional legacy
-  { id: "CALLBACK_STYLE", category: "legacy-code", tier: 0, tool: "grep", desc: "Callback-style API — use promises" },
-
-  // additional defensive
-  { id: "UNCHECKED_PROMISE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Empty .then()/.catch()" },
-  { id: "THROW_NON_ERROR", category: "defensive-programming", tier: 0, tool: "grep", desc: "Thrown value is not an Error instance" },
-  { id: "CATCH_WRAP_NO_CAUSE", category: "defensive-programming", tier: 0, tool: "grep", desc: "Catch wraps error without preserving cause" },
 
   // new ai-slop rules from real-world audit
-  { id: "HARDCODED_FAKE_DATA", category: "ai-slop", tier: 0, tool: "grep", desc: "Hardcoded data array — should come from API" },
-  { id: "UNNECESSARY_INTERMEDIATE", category: "ai-slop", tier: 0, tool: "grep", desc: "Unnecessary intermediate variable before return" },
-  { id: "USEMEMO_EMPTY_DEPS", category: "ai-slop", tier: 1, tool: "grep", desc: "useMemo with empty deps on constant" },
-  { id: "UNDERSCORE_STATE", category: "ai-slop", tier: 0, tool: "grep", desc: "Underscore-prefixed useState — dead state" },
-  { id: "REDUNDANT_CAST", category: "ai-slop", tier: 0, tool: "grep", desc: "Possibly redundant String/Number/Boolean cast" },
-  { id: "KEY_INDEX", category: "ai-slop", tier: 0, tool: "grep", desc: "Array index as React key — use stable ID" },
-  { id: "OR_CASCADE", category: "ai-slop", tier: 0, tool: "grep", desc: "Chained defensive .get() or fallbacks" },
 
   // new security-slop
-  { id: "CLIENT_GENERATED_ID", category: "security-slop", tier: 0, tool: "grep", desc: "Client-generated ID for server records" },
 
   // new complexity
-  { id: "BOOLEAN_FLAG_PARAMS", category: "complexity", tier: 0, tool: "grep", desc: "3+ boolean parameters — use options object" },
 
   // new ast-grep structural rules
   { id: "BROAD_EXCEPT", category: "defensive-programming", tier: 0, tool: "ast-grep", desc: "Python except Exception — too broad" },
@@ -138,6 +92,9 @@ const RULES = [
   { id: "SCATTERED_ENV", category: "inconsistency", tier: 0, tool: "file-metrics", desc: "3+ process.env in non-config file" },
   { id: "MANY_USESTATE", category: "complexity", tier: 0, tool: "file-metrics", desc: "6+ useState in one component" },
   { id: "VERB_IN_ROUTE", category: "inconsistency", tier: 0, tool: "file-metrics", desc: "Verb in REST route path — use nouns" },
+
+  // migrated grep-patterns family
+  ...GREP_PATTERN_RULE_CATALOG,
 
   // migrated grep-extended family
   ...GREP_EXTENDED_RULE_CATALOG,
