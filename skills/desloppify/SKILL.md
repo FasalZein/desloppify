@@ -77,6 +77,7 @@ desloppify delta [base] [head] --json             # compare two saved reports as
 desloppify delta [base] [head] --category complexity --fail-on added,worsened
 desloppify delta [base] [head] --path '**/routes/*.ts' --fail-on any
 desloppify delta [base] [head] --severity high,critical --fail-on added,worsened
+desloppify delta [base] [head] --markdown         # regressions-only markdown + saved latest.delta.md artifact
 desloppify delta [base] [head]                    # human delta with category + path hotspots
 desloppify rules --pack python                    # inspect the python bundle directly
 ```
@@ -144,6 +145,7 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify delta [base] [head] --category <id> --fail-on added,worsened` | Gate one category's regressions |
 | `desloppify delta [base] [head] --path '<glob>' --fail-on any` | Gate one path scope's changes |
 | `desloppify delta [base] [head] --severity high,critical --fail-on added,worsened` | Gate one severity slice's regressions |
+| `desloppify delta [base] [head] --markdown` | Regressions-only markdown + saved artifact |
 | `desloppify delta [base] [head]` | Human delta with category + path hotspots |
 | `desloppify rules --pack python` | Python rule catalog |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |

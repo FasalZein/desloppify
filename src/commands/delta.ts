@@ -1,6 +1,6 @@
 import { defineCommand } from "citty";
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { compareScanReports, type DeltaStatus, type ScanDeltaReport } from "../scan-delta";
 import type { Category, ScanReport, Severity } from "../types";
 
@@ -44,14 +44,17 @@ export default defineCommand({
     "base-report": { type: "string", description: "Explicit base findings.json path" },
     "head-report": { type: "string", description: "Explicit head findings.json path" },
     json: { type: "boolean", description: "Machine-readable JSON output" },
+    markdown: { type: "boolean", description: "Regressions-only markdown output" },
     category: { type: "string", description: "Limit delta output to one category" },
     path: { type: "string", description: "Limit delta output to one path or glob" },
     severity: { type: "string", description: "Limit delta output to one or more severities" },
     "fail-on": { type: "string", description: "Comma-separated statuses: added,worsened,resolved,improved,any" },
   },
   run({ args }) {
-    const baseReport = loadScanReport(resolveInput(args.base, args["base-report"], "base"));
-    const headReport = loadScanReport(resolveInput(args.head, args["head-report"], "head"));
+    const baseReportPath = resolveInput(args.base, args["base-report"], "base");
+    const headReportPath = resolveInput(args.head, args["head-report"], "head");
+    const baseReport = loadScanReport(baseReportPath);
+    const headReport = loadScanReport(headReportPath);
     const delta = compareScanReports(baseReport, headReport);
     const scope = parseScope(args.category, args.path, args.severity);
     const scopedDelta = filterDelta(delta, scope);
@@ -61,6 +64,13 @@ export default defineCommand({
 
     if (args.json) {
       console.log(JSON.stringify(jsonReport, null, 2));
+      process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
+    }
+
+    if (args.markdown) {
+      const markdown = formatDeltaMarkdown(baseReport, headReport, scopedDelta, scope);
+      writeFileSync(getDeltaMarkdownArtifactPath(headReportPath), `${markdown}\n`, "utf8");
+      console.log(markdown);
       process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
     }
 
@@ -137,6 +147,10 @@ function parseFailOn(input: string | undefined): DeltaStatus[] {
   return values as DeltaStatus[];
 }
 
+function getDeltaMarkdownArtifactPath(headReportPath: string): string {
+  return join(dirname(headReportPath), "latest.delta.md");
+}
+
 function parseScope(categoryInput: string | undefined, pathInput: string | undefined, severityInput: string | undefined): DeltaScope {
   const scope: DeltaScope = {};
 
@@ -192,6 +206,54 @@ function buildDeltaCommandJson(base: ScanReport, head: ScanReport, delta: ScanDe
     categories: summarizeByCategory(delta),
     paths: summarizeByPath(delta),
   };
+}
+
+function regressionDelta(delta: ScanDeltaReport): ScanDeltaReport {
+  const changes = delta.changes.filter((change) => change.status === "added" || change.status === "worsened");
+  return {
+    summary: buildSummary(changes),
+    changes,
+  };
+}
+
+function formatDeltaMarkdown(base: ScanReport, head: ScanReport, delta: ScanDeltaReport, scope: DeltaScope): string {
+  const regressions = regressionDelta(delta);
+  const categories = summarizeByCategory(regressions);
+  const paths = summarizeByPath(regressions);
+  const lines = [
+    "# Desloppify regressions",
+    "",
+    `- Base: ${base.scan.path}`,
+    `- Head: ${head.scan.path}`,
+    scope.category || scope.path || (scope.severities?.length ?? 0) > 0 ? `- Scope: ${formatScope(scope)}` : null,
+    `- Added: ${regressions.summary.addedCount}`,
+    `- Worsened: ${regressions.summary.worsenedCount}`,
+  ].filter((line): line is string => Boolean(line));
+
+  if (categories.length > 0) {
+    lines.push("", "## Regressions by category");
+    for (const bucket of categories.slice(0, 10)) {
+      lines.push(`- ${bucket.category}: +${bucket.added} added, +${bucket.worsened} worsened`);
+    }
+  }
+
+  if (paths.length > 0) {
+    lines.push("", "## Regressions by path");
+    for (const bucket of paths.slice(0, 10)) {
+      lines.push(`- ${bucket.path}: +${bucket.added} added, +${bucket.worsened} worsened`);
+    }
+  }
+
+  if (regressions.changes.length > 0) {
+    lines.push("", "## Findings");
+    for (const change of regressions.changes.slice(0, 20)) {
+      lines.push(`- ${change.status.toUpperCase()} ${change.ruleId} ${describePath(change)}${describeMessage(change)}`);
+    }
+  } else {
+    lines.push("", "No added or worsened findings in scope.");
+  }
+
+  return lines.join("\n");
 }
 
 function summarizeByCategory(delta: ScanDeltaReport): Array<DeltaAnalyticsBucket & { category: Category }> {

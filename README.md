@@ -117,6 +117,7 @@ desloppify delta [base] [head] --json           # compare saved findings reports
 desloppify delta [base] [head] --category complexity --fail-on added,worsened
 desloppify delta [base] [head] --path '**/routes/*.ts' --fail-on any
 desloppify delta [base] [head] --severity high,critical --fail-on added,worsened
+desloppify delta [base] [head] --markdown       # regressions-only markdown + saved latest.delta.md artifact
 desloppify delta [base] [head]                  # human delta with category + path hotspots
 desloppify rules                                # list all detection rules
 desloppify rules --pack python                  # python-specific rule bundle
@@ -154,6 +155,7 @@ A normal `desloppify scan ...` run writes artifacts to:
 - `.desloppify/reports/latest.report.md`
 - `.desloppify/reports/latest.wiki.json`
 - `.desloppify/reports/latest.handoff.md`
+- `.desloppify/reports/latest.delta.md` (from `desloppify delta --markdown`)
 
 The CLI also prints these paths after the scan so agents and humans know exactly what to read next.
 

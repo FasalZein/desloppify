@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildScanReport } from "../report";
@@ -53,6 +53,7 @@ describe("delta command", () => {
     expect(command.meta.name).toBe("delta");
     expect(command.args).toHaveProperty("base-report");
     expect(command.args).toHaveProperty("head-report");
+    expect(command.args).toHaveProperty("markdown");
     expect(command.args).toHaveProperty("category");
     expect(command.args).toHaveProperty("path");
     expect(command.args).toHaveProperty("severity");
@@ -181,5 +182,29 @@ describe("delta command", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Scope: severity=HIGH,CRITICAL");
     expect(output).toContain("- added: 0");
+  });
+
+  test("emits regressions-only markdown and saves a markdown artifact", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-markdown-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, [issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" })]);
+    writeReport(head, [
+      issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" }),
+      issue({ id: "NEW_HIGH", category: "security-slop", severity: "HIGH", file: "/repo/src/high.ts" }),
+      issue({ id: "RESOLVED_OLD", category: "dead-code", severity: "MEDIUM", file: "/repo/src/old.ts" }),
+    ]);
+
+    const result = run([base, head, "--severity", "high,critical", "--markdown"]);
+    const output = result.stdout.toString();
+    const artifact = join(head, ".desloppify", "reports", "latest.delta.md");
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("# Desloppify regressions");
+    expect(output).toContain("## Regressions by category");
+    expect(output).toContain("security-slop: +1 added, +0 worsened");
+    expect(output).not.toContain("resolved");
+    expect(existsSync(artifact)).toBe(true);
+    expect(readFileSync(artifact, "utf8")).toContain("# Desloppify regressions");
   });
 });
