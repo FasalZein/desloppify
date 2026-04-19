@@ -116,6 +116,7 @@ desloppify score [path] --pack python           # weighted quality grade for Pyt
 desloppify delta [base] [head] --json           # compare saved findings reports across two repos or report paths
 desloppify delta [base] [head] --category complexity --fail-on added,worsened
 desloppify delta [base] [head] --path '**/routes/*.ts' --fail-on any
+desloppify delta [base] [head] --severity high,critical --fail-on added,worsened
 desloppify delta [base] [head]                  # human delta with category + path hotspots
 desloppify rules                                # list all detection rules
 desloppify rules --pack python                  # python-specific rule bundle

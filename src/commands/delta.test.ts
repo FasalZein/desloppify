@@ -55,6 +55,7 @@ describe("delta command", () => {
     expect(command.args).toHaveProperty("head-report");
     expect(command.args).toHaveProperty("category");
     expect(command.args).toHaveProperty("path");
+    expect(command.args).toHaveProperty("severity");
     expect(command.args).toHaveProperty("fail-on");
   });
 
@@ -144,5 +145,41 @@ describe("delta command", () => {
     expect(output).toContain("- added: 1");
     expect(output).toContain("/repo/src/dead/new.ts: +1 added");
     expect(output).not.toContain("/repo/src/security/new.ts");
+  });
+
+  test("scopes fail-on and analytics to selected severities", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-severity-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, [issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" })]);
+    writeReport(head, [
+      issue({ id: "KEEP", severity: "LOW", file: "/repo/src/keep.ts" }),
+      issue({ id: "NEW_MEDIUM", severity: "MEDIUM", file: "/repo/src/medium.ts" }),
+      issue({ id: "NEW_HIGH", severity: "HIGH", file: "/repo/src/high.ts" }),
+    ]);
+
+    const result = run([base, head, "--severity", "high,critical", "--fail-on", "added,worsened", "--json"]);
+    const delta = JSON.parse(result.stdout.toString());
+
+    expect(result.exitCode).toBe(1);
+    expect(delta.scope.severity).toEqual(["HIGH", "CRITICAL"]);
+    expect(delta.summary.addedCount).toBe(1);
+    expect(delta.paths).toHaveLength(1);
+    expect(delta.paths[0].path).toBe("/repo/src/high.ts");
+  });
+
+  test("severity scope can suppress lower-severity regressions", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-severity-suppress-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, []);
+    writeReport(head, [issue({ id: "NEW_MEDIUM", severity: "MEDIUM", file: "/repo/src/medium.ts" })]);
+
+    const result = run([base, head, "--severity", "high,critical", "--fail-on", "added,worsened"]);
+    const output = result.stdout.toString();
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Scope: severity=HIGH,CRITICAL");
+    expect(output).toContain("- added: 0");
   });
 });

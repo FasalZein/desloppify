@@ -2,9 +2,10 @@ import { defineCommand } from "citty";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compareScanReports, type DeltaStatus, type ScanDeltaReport } from "../scan-delta";
-import type { Category, ScanReport } from "../types";
+import type { Category, ScanReport, Severity } from "../types";
 
 const DELTA_STATUSES: DeltaStatus[] = ["added", "resolved", "worsened", "improved"];
+const SEVERITIES: Severity[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
 interface DeltaAnalyticsBucket {
   key: string;
@@ -23,6 +24,7 @@ interface DeltaCommandJson extends ScanDeltaReport {
   scope: {
     category: Category | null;
     path: string | null;
+    severity: Severity[];
   };
   categories: Array<DeltaAnalyticsBucket & { category: Category }>;
   paths: Array<DeltaAnalyticsBucket & { path: string }>;
@@ -31,6 +33,7 @@ interface DeltaCommandJson extends ScanDeltaReport {
 interface DeltaScope {
   category?: Category;
   path?: string;
+  severities?: Severity[];
 }
 
 export default defineCommand({
@@ -43,13 +46,14 @@ export default defineCommand({
     json: { type: "boolean", description: "Machine-readable JSON output" },
     category: { type: "string", description: "Limit delta output to one category" },
     path: { type: "string", description: "Limit delta output to one path or glob" },
+    severity: { type: "string", description: "Limit delta output to one or more severities" },
     "fail-on": { type: "string", description: "Comma-separated statuses: added,worsened,resolved,improved,any" },
   },
   run({ args }) {
     const baseReport = loadScanReport(resolveInput(args.base, args["base-report"], "base"));
     const headReport = loadScanReport(resolveInput(args.head, args["head-report"], "head"));
     const delta = compareScanReports(baseReport, headReport);
-    const scope = parseScope(args.category, args.path);
+    const scope = parseScope(args.category, args.path, args.severity);
     const scopedDelta = filterDelta(delta, scope);
     const failOn = parseFailOn(args["fail-on"]);
 
@@ -63,7 +67,7 @@ export default defineCommand({
     console.log("# Desloppify delta");
     console.log(`Base: ${baseReport.scan.path}`);
     console.log(`Head: ${headReport.scan.path}`);
-    if (scope.category || scope.path) {
+    if (scope.category || scope.path || (scope.severities?.length ?? 0) > 0) {
       console.log(`Scope: ${formatScope(scope)}`);
     }
     console.log("");
@@ -133,7 +137,7 @@ function parseFailOn(input: string | undefined): DeltaStatus[] {
   return values as DeltaStatus[];
 }
 
-function parseScope(categoryInput: string | undefined, pathInput: string | undefined): DeltaScope {
+function parseScope(categoryInput: string | undefined, pathInput: string | undefined, severityInput: string | undefined): DeltaScope {
   const scope: DeltaScope = {};
 
   if (categoryInput) {
@@ -142,6 +146,19 @@ function parseScope(categoryInput: string | undefined, pathInput: string | undef
 
   if (pathInput) {
     scope.path = pathInput;
+  }
+
+  if (severityInput) {
+    scope.severities = severityInput
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean)
+      .map((value) => {
+        if (!SEVERITIES.includes(value as Severity)) {
+          throw new Error(`Unknown severity: ${value}`);
+        }
+        return value as Severity;
+      });
   }
 
   return scope;
@@ -153,7 +170,7 @@ function shouldFail(delta: ScanDeltaReport, failOn: DeltaStatus[]): boolean {
 }
 
 function filterDelta(delta: ScanDeltaReport, scope: DeltaScope): ScanDeltaReport {
-  if (!scope.category && !scope.path) return delta;
+  if (!scope.category && !scope.path && !(scope.severities?.length ?? 0)) return delta;
 
   const changes = delta.changes.filter((change) => matchesScope(change, scope));
   return {
@@ -169,6 +186,7 @@ function buildDeltaCommandJson(base: ScanReport, head: ScanReport, delta: ScanDe
     scope: {
       category: scope.category ?? null,
       path: scope.path ?? null,
+      severity: scope.severities ?? [],
     },
     ...delta,
     categories: summarizeByCategory(delta),
@@ -217,6 +235,11 @@ function matchesScope(change: ScanDeltaReport["changes"][number], scope: DeltaSc
     if (!path || !matchesPathScope(path, scope.path)) return false;
   }
 
+  if (scope.severities?.length) {
+    const severity = scopedSeverity(change);
+    if (!severity || !scope.severities.includes(severity)) return false;
+  }
+
   return true;
 }
 
@@ -232,6 +255,18 @@ function matchesPathScope(path: string, pattern: string): boolean {
 
 function escapeRegex(value: string): string {
   return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
+
+function scopedSeverity(change: ScanDeltaReport["changes"][number]): Severity | null {
+  switch (change.status) {
+    case "resolved":
+    case "improved":
+      return change.base?.severity ?? change.head?.severity ?? null;
+    case "added":
+    case "worsened":
+    case "unchanged":
+      return change.head?.severity ?? change.base?.severity ?? null;
+  }
 }
 
 function buildSummary(changes: ScanDeltaReport["changes"]): ScanDeltaReport["summary"] {
@@ -251,6 +286,7 @@ function formatScope(scope: DeltaScope): string {
   return [
     scope.category ? `category=${scope.category}` : null,
     scope.path ? `path=${scope.path}` : null,
+    scope.severities?.length ? `severity=${scope.severities.join(",")}` : null,
   ].filter(Boolean).join(", ");
 }
 
