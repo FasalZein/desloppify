@@ -122,6 +122,7 @@ export default defineCommand({
       sliceId: args.slice,
       prdId: args.prd,
       featureId: args.feature,
+      deltaReport,
     });
     const reportMarkdown = formatMarkdown(report);
     const handoffMarkdown = formatWikiHandoffMarkdown(wikiReport);

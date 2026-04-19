@@ -81,4 +81,38 @@ describe("worktrees command", () => {
     expect(output).toContain(`cd \"${tempRoot}/../ai-slop-worktree\" && desloppify scan . --category ai-slop --pack js-ts`);
     expect(output).toContain("git merge fix/complexity");
   });
+
+  test("prioritizes categories with new blockers from delta", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-worktrees-delta-"));
+    mkdirSync(join(tempRoot, ".desloppify", "reports"), { recursive: true });
+    writeFileSync(join(tempRoot, ".desloppify", "reports", "latest.findings.json"), JSON.stringify({
+      scan: { pack: { name: "js-ts" } },
+      findings: [
+        { category: "ai-slop", severity: "MEDIUM" },
+        { category: "complexity", severity: "HIGH" },
+      ],
+      categories: {
+        "ai-slop": { count: 1, fixable: 1 },
+        complexity: { count: 1, fixable: 0 },
+      },
+    }));
+    writeFileSync(join(tempRoot, ".desloppify", "reports", "latest.delta.json"), JSON.stringify({
+      summary: { addedCount: 1, resolvedCount: 1, worsenedCount: 0, improvedCount: 0 },
+      changes: [
+        { status: "added", head: { category: "ai-slop", severity: "HIGH" } },
+        { status: "resolved", base: { category: "complexity", severity: "HIGH" } },
+      ],
+    }));
+
+    const result = run([tempRoot]);
+    const output = result.stdout.toString();
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("# Delta report:");
+    expect(output).toContain("- new findings: 1");
+    expect(output).toContain("- new blockers: 1");
+    expect(output).toContain("- resolved/improved: 1");
+    expect(output.indexOf("# ai-slop")).toBeLessThan(output.indexOf("# complexity"));
+    expect(output).toContain(`desloppify worktrees ${tempRoot} --categories ai-slop,complexity`);
+  });
 });

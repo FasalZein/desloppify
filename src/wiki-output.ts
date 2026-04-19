@@ -1,3 +1,4 @@
+import type { ScanDeltaReport } from "./scan-delta";
 import type { Finding, RuleDefinition, ScanReport } from "./types";
 
 export interface WikiWorkflowContext {
@@ -5,6 +6,7 @@ export interface WikiWorkflowContext {
   sliceId?: string;
   prdId?: string;
   featureId?: string;
+  deltaReport?: ScanDeltaReport | null;
 }
 
 export interface WikiAction {
@@ -41,6 +43,16 @@ export interface WikiReport {
     blocking: number;
     warning: number;
     info: number;
+    newBlocking?: number;
+    resolved?: number;
+  };
+  delta?: {
+    added: number;
+    resolved: number;
+    worsened: number;
+    improved: number;
+    newBlocking: number;
+    existingBlocking: number;
   };
   rules: Record<string, RuleDefinition>;
   findings: Finding[];
@@ -80,13 +92,28 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
   const blockingFindings = report.findings.filter(isBlocking);
   const warningFindings = report.findings.filter((finding) => finding.severity === "MEDIUM");
   const infoFindings = report.findings.filter((finding) => finding.severity === "LOW");
+  const delta = context.deltaReport ?? null;
+  const newBlockingChanges = (delta?.changes ?? []).filter((change) => {
+    if (change.status !== "added" && change.status !== "worsened") return false;
+    const head = change.head;
+    return Boolean(head && isBlocking(head));
+  });
+  const newBlockingFingerprints = new Set(newBlockingChanges.map((change) => change.head?.fingerprints.primary).filter(Boolean));
+  const newBlockingFindings = blockingFindings.filter((finding) => newBlockingFingerprints.has(finding.fingerprints.primary));
+  const existingBlockingFindings = blockingFindings.filter((finding) => !newBlockingFingerprints.has(finding.fingerprints.primary));
 
   const blockers = blockingFindings.map(describeFinding);
-
   const warnings = warningFindings.map(describeFinding);
 
   const actions: WikiAction[] = [];
-  if (blockingFindings.length) {
+  if (newBlockingFindings.length) {
+    actions.push({
+      kind: "fix-code",
+      priority: 1,
+      message: `Resolve ${newBlockingFindings.length} newly introduced blocking finding(s) before closeout`,
+      findingIds: newBlockingFindings.map((finding) => finding.id),
+    });
+  } else if (blockingFindings.length) {
     actions.push({
       kind: "fix-code",
       priority: 1,
@@ -94,17 +121,24 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
       findingIds: blockingFindings.map((finding) => finding.id),
     });
   }
-  if (warningFindings.length || infoFindings.length) {
+  if (delta && (delta.summary.addedCount || delta.summary.resolvedCount || delta.summary.worsenedCount || delta.summary.improvedCount)) {
     actions.push({
       kind: "review-finding",
       priority: blockingFindings.length ? 2 : 1,
+      message: `Review scan delta: ${delta.summary.addedCount} added, ${delta.summary.resolvedCount} resolved, ${delta.summary.worsenedCount} worsened, ${delta.summary.improvedCount} improved`,
+    });
+  }
+  if (warningFindings.length || infoFindings.length) {
+    actions.push({
+      kind: "review-finding",
+      priority: blockingFindings.length ? 3 : 2,
       message: `Review ${warningFindings.length + infoFindings.length} non-blocking finding(s) for follow-up`,
       findingIds: [...warningFindings, ...infoFindings].map((finding) => finding.id),
     });
   }
   actions.push({
     kind: "closeout",
-    priority: blockingFindings.length ? 3 : 2,
+    priority: blockingFindings.length ? 4 : 3,
     message: context.project
       ? `Run wiki closeout ${context.project} after code and wiki pages are updated`
       : "Run wiki closeout after code and wiki pages are updated",
@@ -114,19 +148,28 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
     ? `wiki closeout ${context.project} --repo <path> --base <rev>`
     : "wiki closeout <project> --repo <path> --base <rev>";
 
-  const nextSteps = blockingFindings.length > 0
+  const nextSteps = newBlockingFindings.length > 0
     ? [
-        "Fix blocking findings",
+        "Fix newly introduced blocking findings",
+        delta ? "Review the delta report for new and resolved findings" : "Review the current findings report",
         "Update impacted wiki pages from code",
         closeoutCommand,
       ]
-    : [
-        "Review remaining findings",
-        "Update impacted wiki pages from code",
-        closeoutCommand,
-      ];
+    : blockingFindings.length > 0
+      ? [
+          "Fix blocking findings",
+          delta ? "Review the delta report for newly introduced findings" : "Review the current findings report",
+          "Update impacted wiki pages from code",
+          closeoutCommand,
+        ]
+      : [
+          delta ? "Review the delta report for newly introduced findings" : "Review remaining findings",
+          "Update impacted wiki pages from code",
+          closeoutCommand,
+        ];
 
   const findingsPath = `${report.scan.path}/.desloppify/reports/latest.findings.json`;
+  const deltaPath = `${report.scan.path}/.desloppify/reports/latest.delta.json`;
   const workflowCommands: WikiWorkflowCommand[] = [
     {
       id: "read-findings",
@@ -137,6 +180,15 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
         args: [findingsPath],
       },
     },
+    ...(delta ? [{
+      id: "read-delta",
+      label: "Read scan delta",
+      command: `cat ${deltaPath}`,
+      exec: {
+        command: "cat",
+        args: [deltaPath],
+      },
+    } satisfies WikiWorkflowCommand] : []),
     {
       id: "prepare-fixes",
       label: "Prepare fix workflow",
@@ -170,7 +222,17 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
       blocking: blockingFindings.length,
       warning: warningFindings.length,
       info: infoFindings.length,
+      newBlocking: newBlockingFindings.length,
+      resolved: delta?.summary.resolvedCount,
     },
+    delta: delta ? {
+      added: delta.summary.addedCount,
+      resolved: delta.summary.resolvedCount,
+      worsened: delta.summary.worsenedCount,
+      improved: delta.summary.improvedCount,
+      newBlocking: newBlockingFindings.length,
+      existingBlocking: existingBlockingFindings.length,
+    } : undefined,
     rules: report.rules,
     findings: report.findings,
     actions,
@@ -181,8 +243,13 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
     handoff: {
       activeSlice: context.sliceId,
       nextSessionPrompt: context.sliceId
-        ? `Continue ${context.sliceId}: resolve remaining findings, update wiki pages, and re-run wiki closeout with --base <rev>.`
-        : "Continue resolving findings, update wiki pages, and re-run wiki closeout with --base <rev>.",
+        ? newBlockingFindings.length > 0
+          ? `Continue ${context.sliceId}: resolve newly introduced blockers first, then update wiki pages and re-run wiki closeout with --base <rev>.`
+          : `Continue ${context.sliceId}: resolve remaining findings, review the delta report, update wiki pages, and re-run wiki closeout with --base <rev>.`
+        : newBlockingFindings.length > 0
+          ? "Continue: resolve newly introduced blockers first, then update wiki pages and re-run wiki closeout with --base <rev>."
+          : "Continue resolving findings, review the delta report, update wiki pages, and re-run wiki closeout with --base <rev>.",
+      resumeHint: delta ? `Review ${deltaPath} for added/resolved findings before closeout.` : undefined,
       unresolvedFindingFingerprints: report.findings.map((finding) => finding.fingerprints.primary),
     },
   };
@@ -195,15 +262,44 @@ export function formatWikiHandoffMarkdown(report: WikiReport): string {
     "## TL;DR",
     report.summary.ok
       ? `${report.summary.warning + report.summary.info} non-blocking finding(s). Ready for wiki closeout after page review.`
-      : `${report.summary.blocking} blocker(s), ${report.summary.warning + report.summary.info} non-blocking finding(s). Not ready for closeout.`,
-    "",
-    "## Blocking findings",
+      : report.summary.newBlocking
+        ? `${report.summary.newBlocking} new blocker(s), ${report.summary.blocking - report.summary.newBlocking} existing blocker(s), ${report.summary.warning + report.summary.info} non-blocking finding(s). Not ready for closeout.`
+        : `${report.summary.blocking} blocker(s), ${report.summary.warning + report.summary.info} non-blocking finding(s). Not ready for closeout.`,
   ];
 
-  if (report.blockers.length === 0) lines.push("- none");
-  else for (const blocker of report.blockers) lines.push(`- ${blocker}`);
+  if (report.delta) {
+    lines.push(
+      "",
+      "## Delta vs previous scan",
+      `- Added: ${report.delta.added}`,
+      `- Resolved: ${report.delta.resolved}`,
+      `- Worsened: ${report.delta.worsened}`,
+      `- Improved: ${report.delta.improved}`,
+      `- New blocking findings: ${report.delta.newBlocking}`,
+    );
+  }
 
+  const newBlocking = report.findings.filter((finding) => isBlocking(finding) && Boolean(report.delta) && report.handoff.unresolvedFindingFingerprints.includes(finding.fingerprints.primary) && report.summary.newBlocking && report.delta?.newBlocking && report.delta.newBlocking > 0)
+    .filter((finding) => report.actions[0]?.findingIds?.includes(finding.id));
   const nonBlocking = report.findings.filter((finding) => !isBlocking(finding));
+
+  lines.push("", "## Blocking findings");
+  if (report.blockers.length === 0) {
+    lines.push("- none");
+  } else {
+    if (newBlocking.length > 0) {
+      lines.push("### New blocking findings");
+      for (const finding of newBlocking) lines.push(`- ${describeFinding(finding)}`);
+      const existingBlocking = report.findings.filter((finding) => isBlocking(finding) && !newBlocking.some((item) => item.id === finding.id));
+      if (existingBlocking.length > 0) {
+        lines.push("", "### Existing blocking findings");
+        for (const finding of existingBlocking) lines.push(`- ${describeFinding(finding)}`);
+      }
+    } else {
+      for (const blocker of report.blockers) lines.push(`- ${blocker}`);
+    }
+  }
+
   if (nonBlocking.length > 0) {
     lines.push("", "## Non-blocking findings");
     for (const finding of nonBlocking) lines.push(`- ${describeFinding(finding)}`);

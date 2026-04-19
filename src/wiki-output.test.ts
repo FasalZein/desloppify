@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildScanReport } from "./report";
+import { compareScanReports } from "./scan-delta";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "./wiki-output";
 import type { Issue, ToolStatus } from "./types";
 
@@ -77,6 +78,37 @@ describe("wiki output", () => {
     expect(markdown).toContain("WARNING_RULE at /repo/src/warn.ts:2");
     expect(markdown).toContain("wiki closeout desloppify");
     expect(markdown).toContain("--base <rev>");
+  });
+
+  test("prioritizes newly introduced blockers when delta exists", () => {
+    const base = buildScanReport("/repo", tools, [issues[1]!], { name: "js-ts", explicit: true });
+    const head = buildScanReport("/repo", tools, issues, { name: "js-ts", explicit: true });
+    const delta = compareScanReports(base, head);
+    const wiki = buildWikiReport(head, {
+      project: "desloppify",
+      sliceId: "DESLOPPIFY-029",
+      deltaReport: delta,
+    });
+    const markdown = formatWikiHandoffMarkdown(wiki);
+
+    expect(wiki.summary.newBlocking).toBe(1);
+    expect(wiki.delta?.added).toBe(1);
+    expect(wiki.delta?.newBlocking).toBe(1);
+    expect(wiki.actions[0]?.message).toContain("newly introduced blocking");
+    expect(wiki.workflowCommands.map((command) => command.id)).toEqual([
+      "read-findings",
+      "read-delta",
+      "prepare-fixes",
+      "wiki-closeout",
+    ]);
+    expect(wiki.workflowCommands[1]?.exec).toEqual({
+      command: "cat",
+      args: ["/repo/.desloppify/reports/latest.delta.json"],
+    });
+    expect(wiki.handoff.resumeHint).toContain("latest.delta.json");
+    expect(markdown).toContain("## Delta vs previous scan");
+    expect(markdown).toContain("Added: 1");
+    expect(markdown).toContain("New blocking findings");
   });
 
   test("lists non-blocking findings even when there are no blockers", () => {

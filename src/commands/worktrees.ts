@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "path";
+import type { ScanDeltaReport } from "../scan-delta";
 import type { Category, ScanReport, Severity } from "../types";
 
 export default defineCommand({
@@ -12,7 +13,9 @@ export default defineCommand({
   run({ args }) {
     const targetPath = resolve(args.path);
     const findingsPath = join(targetPath, ".desloppify", "reports", "latest.findings.json");
+    const deltaPath = join(targetPath, ".desloppify", "reports", "latest.delta.json");
     const report = loadReport(findingsPath);
+    const delta = loadDeltaReport(deltaPath);
 
     if (!report) {
       console.error(`No saved findings at ${findingsPath}`);
@@ -20,18 +23,24 @@ export default defineCommand({
       process.exit(1);
     }
 
-    const triage = buildWorktreeTriagePlan(report);
+    const triage = buildWorktreeTriagePlan(report, delta);
 
     if (!args.categories) {
       console.log("# Desloppify worktree triage");
       console.log(`# Saved findings: ${findingsPath}`);
       console.log(`# Pack: ${report.scan.pack.name}`);
+      if (delta) console.log(`# Delta report: ${deltaPath}`);
       console.log("");
       for (const item of triage) {
         console.log(`# ${item.category}`);
         console.log(`- findings: ${item.count}`);
         console.log(`- fixable: ${item.fixable}`);
         console.log(`- highest severity: ${item.highestSeverity.toLowerCase()}`);
+        if (delta) {
+          console.log(`- new findings: ${item.newCount}`);
+          console.log(`- new blockers: ${item.newBlockingCount}`);
+          console.log(`- resolved/improved: ${item.resolvedCount}`);
+        }
         console.log("");
       }
       console.log(`# Next: desloppify worktrees ${targetPath} --categories ${triage.map((item) => item.category).join(",")}`);
@@ -54,6 +63,7 @@ export default defineCommand({
     console.log("# Desloppify worktree setup");
     console.log("# Run these commands to create isolated worktrees for each fix category");
     console.log(`# Saved findings: ${findingsPath}`);
+    if (delta) console.log(`# Delta report: ${deltaPath}`);
     console.log("");
 
     for (const cat of cats) {
@@ -80,6 +90,9 @@ interface TriageItem {
   count: number;
   fixable: number;
   highestSeverity: Severity;
+  newCount: number;
+  newBlockingCount: number;
+  resolvedCount: number;
 }
 
 function loadReport(findingsPath: string): ScanReport | null {
@@ -92,7 +105,17 @@ function loadReport(findingsPath: string): ScanReport | null {
   }
 }
 
-function buildWorktreeTriagePlan(report: ScanReport): TriageItem[] {
+function loadDeltaReport(deltaPath: string): ScanDeltaReport | null {
+  if (!existsSync(deltaPath)) return null;
+
+  try {
+    return JSON.parse(readFileSync(deltaPath, "utf8")) as ScanDeltaReport;
+  } catch {
+    return null;
+  }
+}
+
+function buildWorktreeTriagePlan(report: ScanReport, delta?: ScanDeltaReport | null): TriageItem[] {
   const order: Severity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
   const byCategory = new Map<Category, TriageItem>();
 
@@ -105,6 +128,9 @@ function buildWorktreeTriagePlan(report: ScanReport): TriageItem[] {
         count: summary?.count ?? 1,
         fixable: summary?.fixable ?? (finding.fixes?.length ? 1 : 0),
         highestSeverity: finding.severity,
+        newCount: 0,
+        newBlockingCount: 0,
+        resolvedCount: 0,
       });
       continue;
     }
@@ -114,7 +140,27 @@ function buildWorktreeTriagePlan(report: ScanReport): TriageItem[] {
     }
   }
 
+  if (delta) {
+    for (const change of delta.changes) {
+      const category = change.head?.category ?? change.base?.category;
+      if (!category) continue;
+      const current = byCategory.get(category as Category);
+      if (!current) continue;
+
+      if (change.status === "added" || change.status === "worsened") {
+        current.newCount++;
+        const severity = change.head?.severity;
+        if (severity === "CRITICAL" || severity === "HIGH") current.newBlockingCount++;
+      }
+      if (change.status === "resolved" || change.status === "improved") {
+        current.resolvedCount++;
+      }
+    }
+  }
+
   return [...byCategory.values()].sort((a, b) => {
+    if (b.newBlockingCount !== a.newBlockingCount) return b.newBlockingCount - a.newBlockingCount;
+    if (b.newCount !== a.newCount) return b.newCount - a.newCount;
     const severityDiff = order.indexOf(a.highestSeverity) - order.indexOf(b.highestSeverity);
     if (severityDiff !== 0) return severityDiff;
     if (b.count !== a.count) return b.count - a.count;
