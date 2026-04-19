@@ -1,9 +1,7 @@
 import type { FileEntry } from "./analyzers/file-walker";
-import { runArchitectureProfileFromEntries } from "./analyzers/architecture-profile";
 import { runAstGrep } from "./analyzers/ast-grep";
-import { runFileMetricsFromEntries } from "./analyzers/file-metrics";
 import { runKnip } from "./analyzers/knip";
-import { runBuiltinTextAnalyzers } from "./analyzer-registry";
+import { runBuiltinEntryAnalyzers, runBuiltinTextAnalyzers } from "./analyzer-registry";
 import { runMadge } from "./analyzers/madge";
 import { runTsc } from "./analyzers/tsc";
 import type { Issue, PackName, PackSelection, ToolStatus } from "./types";
@@ -134,8 +132,10 @@ export function runPackInternalAnalyzers(pack: PackName, entries: FileEntry[], o
       const sourceEntries = filterEntries(entries, JS_TS_SOURCE_FILE);
       return [
         ...runBuiltinTextAnalyzers(textEntries, { ruleFilter: isJsTsRule }),
-        ...runFileMetricsFromEntries(sourceEntries, { architecture: options.architecture }),
-        ...runArchitectureProfileFromEntries(sourceEntries, { architecture: options.architecture }),
+        ...runBuiltinEntryAnalyzers(sourceEntries, {
+          ids: ["file-metrics", "architecture-profile"],
+          architecture: options.architecture,
+        }),
       ];
     }
     case "python": {
