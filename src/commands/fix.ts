@@ -3,8 +3,8 @@ import { resolve } from "path";
 import type { Issue, Tier } from "../types";
 import { detectTools } from "../tools";
 import { walkFiles } from "../analyzers/file-walker";
-import { runGrepPatternsFromEntries } from "../analyzers/grep-patterns";
 import { runAstGrep } from "../analyzers/ast-grep";
+import { runBuiltinTextAnalyzers } from "../analyzer-registry";
 import { runKnip } from "../analyzers/knip";
 import { runMadge } from "../analyzers/madge";
 import { runTsc } from "../analyzers/tsc";
@@ -46,7 +46,7 @@ export default defineCommand({
 
     const allIssues: Issue[] = [];
     const entries = await walkFiles(targetPath);
-    allIssues.push(...runGrepPatternsFromEntries(entries));
+    allIssues.push(...runBuiltinTextAnalyzers(entries, { ids: ["grep-patterns"] }));
     const tasks: Promise<Issue[]>[] = [];
 
     if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));

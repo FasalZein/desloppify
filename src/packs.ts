@@ -2,9 +2,8 @@ import type { FileEntry } from "./analyzers/file-walker";
 import { runArchitectureProfileFromEntries } from "./analyzers/architecture-profile";
 import { runAstGrep } from "./analyzers/ast-grep";
 import { runFileMetricsFromEntries } from "./analyzers/file-metrics";
-import { runGrepExtendedFromEntries } from "./analyzers/grep-extended";
-import { runGrepPatternsFromEntries } from "./analyzers/grep-patterns";
 import { runKnip } from "./analyzers/knip";
+import { runBuiltinTextAnalyzers } from "./analyzer-registry";
 import { runMadge } from "./analyzers/madge";
 import { runTsc } from "./analyzers/tsc";
 import type { Issue, PackName, PackSelection, ToolStatus } from "./types";
@@ -134,8 +133,7 @@ export function runPackInternalAnalyzers(pack: PackName, entries: FileEntry[], o
       const textEntries = filterEntries(entries, JS_TS_TEXT_FILE);
       const sourceEntries = filterEntries(entries, JS_TS_SOURCE_FILE);
       return [
-        ...runGrepPatternsFromEntries(textEntries, isJsTsRule),
-        ...runGrepExtendedFromEntries(textEntries, isJsTsRule),
+        ...runBuiltinTextAnalyzers(textEntries, { ruleFilter: isJsTsRule }),
         ...runFileMetricsFromEntries(sourceEntries, { architecture: options.architecture }),
         ...runArchitectureProfileFromEntries(sourceEntries, { architecture: options.architecture }),
       ];
@@ -143,8 +141,10 @@ export function runPackInternalAnalyzers(pack: PackName, entries: FileEntry[], o
     case "python": {
       const pythonEntries = filterEntries(entries, PYTHON_FILE);
       return [
-        ...runGrepPatternsFromEntries(pythonEntries, isPythonPatternRule),
-        ...runGrepExtendedFromEntries(pythonEntries, isPythonExtendedRule),
+        ...runBuiltinTextAnalyzers(pythonEntries, {
+          ids: ["grep-patterns", "grep-extended"],
+          ruleFilter: (ruleId) => isPythonPatternRule(ruleId) || isPythonExtendedRule(ruleId),
+        }),
       ];
     }
   }
