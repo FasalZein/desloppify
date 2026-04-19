@@ -11,7 +11,8 @@ import { buildScanReport } from "../report";
 import { getPackExternalTasks, getPackMeta, resolvePackSelection } from "../packs";
 import { runPackInternalAnalyzers } from "../packs";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
-import { saveScanArtifacts } from "../report-artifacts";
+import { loadSavedScanReport, saveScanArtifacts } from "../report-artifacts";
+import { compareScanReports } from "../scan-delta";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues, showNextActions,
@@ -113,7 +114,9 @@ export default defineCommand({
 
     const elapsed = performance.now() - t0;
 
+    const previousReport = loadSavedScanReport(targetPath);
     const report = buildScanReport(targetPath, tools, filtered, pack, architecture);
+    const deltaReport = previousReport ? compareScanReports(previousReport, report) : null;
     const wikiReport = buildWikiReport(report, {
       project: args.project,
       sliceId: args.slice,
@@ -123,7 +126,7 @@ export default defineCommand({
     const reportMarkdown = formatMarkdown(report);
     const handoffMarkdown = formatWikiHandoffMarkdown(wikiReport);
 
-    const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown);
+    const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown, deltaReport);
 
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
@@ -196,13 +199,26 @@ export default defineCommand({
       `Readable report: ${artifacts.reportMarkdown}`,
       `Wiki report: ${artifacts.wikiJson}`,
       `Handoff: ${artifacts.handoffMarkdown}`,
+      deltaReport ? `Delta report: ${artifacts.deltaJson}` : `Delta report: unavailable (no previous saved scan)`,
     ].join("\n"), "Saved reports");
+
+    if (deltaReport) {
+      p.note([
+        `Added: ${deltaReport.summary.addedCount}`,
+        `Resolved: ${deltaReport.summary.resolvedCount}`,
+        `Worsened: ${deltaReport.summary.worsenedCount}`,
+        `Improved: ${deltaReport.summary.improvedCount}`,
+      ].join("\n"), "Delta vs previous scan");
+    }
 
     const nextActions = [
       `Show the current score again: desloppify score ${args.path} --pack ${pack.name}`,
       filtered.length > 0
         ? `Read machine findings: cat ${artifacts.findingsJson}`
         : `Install repo-local hooks: desloppify install-hooks`,
+      deltaReport
+        ? `Review scan delta: cat ${artifacts.deltaJson}`
+        : `Run scan again later to compare against this baseline: desloppify scan ${args.path} --pack ${pack.name}`,
       filtered.length > 0
         ? `Prepare isolated fixes: desloppify worktrees ${args.path}`
         : `Run a focused diff scan before commit: desloppify scan ${args.path} --staged --pack ${pack.name}`,

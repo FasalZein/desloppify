@@ -51,6 +51,7 @@ function artifactPaths(root: string) {
     reportPath: join(root, ".desloppify", "reports", "latest.report.md"),
     wikiPath: join(root, ".desloppify", "reports", "latest.wiki.json"),
     handoffPath: join(root, ".desloppify", "reports", "latest.handoff.md"),
+    deltaPath: join(root, ".desloppify", "reports", "latest.delta.json"),
   };
 }
 
@@ -126,18 +127,25 @@ describe("CLI workflow", () => {
     expect(tags).not.toContain("desloppify-checkpoint-");
   });
 
-  test("worktrees prints current branch merge steps and saved findings path", () => {
-    const { root } = createTempRepo();
+  test("second scan writes delta artifact and worktrees keeps using saved findings", () => {
+    const { root, filePath } = createTempRepo();
     runCli(["scan", root, "--pack", "js-ts"]);
+    writeFileSync(filePath, 'const ready = value === true;\n', "utf8");
+    const rescan = runCli(["scan", root, "--pack", "js-ts"]);
+    const delta = JSON.parse(readFileSync(artifactPaths(root).deltaPath, "utf8"));
 
-    const result = runCli(["worktrees", root, "--categories", "ai-slop"]);
+    const result = runCli(["worktrees", root, "--categories", "dead-code"]);
     const output = squashWhitespace(result.stdout.toString());
     const branch = Bun.spawnSync(["git", "-C", root, "branch", "--show-current"], { stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
 
+    expect(rescan.exitCode).toBe(1);
+    expect(rescan.stdout.toString()).toContain("Delta report:");
+    expect(delta.summary.addedCount).toBeGreaterThanOrEqual(1);
+    expect(delta.summary.resolvedCount).toBeGreaterThanOrEqual(1);
     expect(result.exitCode).toBe(0);
     expect(output).toContain(`# Saved findings: ${join(root, ".desloppify", "reports", "latest.findings.json")}`);
     expect(output).toContain(`git checkout ${branch}`);
-    expect(output).toContain("git merge fix/ai-slop");
+    expect(output).toContain("git merge fix/dead-code");
     expect(output).not.toContain("git merge fix/complexity");
   });
 });

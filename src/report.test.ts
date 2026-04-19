@@ -35,4 +35,11 @@ describe("buildScanReport", () => {
     expect(report.findings[0]?.locations[0]?.path).toBe("/repo/src/example.ts");
     expect(typeof report.findings[0]?.fingerprints.primary).toBe("string");
   });
+
+  test("dedupes identical issues before building findings", () => {
+    const report = buildScanReport("/repo", tools, [issues[0], { ...issues[0] }], { name: "js-ts", explicit: true });
+
+    expect(report.findings).toHaveLength(1);
+    expect(report.summary.medium).toBe(1);
+  });
 });

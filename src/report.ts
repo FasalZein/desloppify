@@ -24,6 +24,16 @@ function fingerprintFor(issue: Issue): string {
     .digest("hex");
 }
 
+function dedupeIssues(issues: Issue[]): Issue[] {
+  const seen = new Set<string>();
+  return issues.filter((issue) => {
+    const fingerprint = fingerprintFor(issue);
+    if (seen.has(fingerprint)) return false;
+    seen.add(fingerprint);
+    return true;
+  });
+}
+
 function ruleName(ruleId: string): string {
   return ruleId
     .toLowerCase()
@@ -94,10 +104,11 @@ export function buildScanReport(
   pack: PackSelection,
   architecture?: string,
 ): ScanReport {
+  const normalizedIssues = dedupeIssues(issues);
   const summary = { critical: 0, high: 0, medium: 0, low: 0 };
   const categories: Partial<Record<Category, CategorySummary>> = {};
 
-  for (const issue of issues) {
+  for (const issue of normalizedIssues) {
     summary[issue.severity.toLowerCase() as keyof typeof summary]++;
     if (!categories[issue.category]) {
       categories[issue.category] = { count: 0, fixable: 0 };
@@ -106,12 +117,12 @@ export function buildScanReport(
     if (issue.tier > 0) categories[issue.category]!.fixable++;
   }
 
-  const rules = issues.reduce<Record<string, RuleDefinition>>((acc, issue) => {
+  const rules = normalizedIssues.reduce<Record<string, RuleDefinition>>((acc, issue) => {
     if (!acc[issue.id]) acc[issue.id] = issueToRule(issue);
     return acc;
   }, {});
-  const findings = issues.map(issueToFinding);
-  const { score } = calculateScore(issues);
+  const findings = normalizedIssues.map(issueToFinding);
+  const { score } = calculateScore(normalizedIssues);
 
   return {
     schema_version: "desloppify.findings/v1",
