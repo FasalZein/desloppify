@@ -113,6 +113,8 @@ desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --pack python           # weighted quality grade for Python scans
+desloppify delta [base] [head] --json           # compare saved findings reports across two repos or report paths
+desloppify delta [base] [head]                  # human delta with category + path hotspots
 desloppify rules                                # list all detection rules
 desloppify rules --pack python                  # python-specific rule bundle
 desloppify rules --architecture modular-monolith # active architecture bundle only

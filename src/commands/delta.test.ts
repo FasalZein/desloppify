@@ -56,12 +56,12 @@ describe("delta command", () => {
     expect(command.args).toHaveProperty("fail-on");
   });
 
-  test("compares saved repo reports via positional paths", () => {
+  test("compares saved repo reports via positional paths and prints analytics", () => {
     tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-"));
     const base = join(tempRoot, "base");
     const head = join(tempRoot, "head");
-    writeReport(base, [issue({ severity: "LOW" })]);
-    writeReport(head, [issue({ severity: "HIGH" })]);
+    writeReport(base, [issue({ severity: "LOW", file: "/repo/src/example.ts" })]);
+    writeReport(head, [issue({ severity: "HIGH", file: "/repo/src/example.ts" })]);
 
     const result = run([base, head]);
     const output = result.stdout.toString();
@@ -69,14 +69,24 @@ describe("delta command", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain("# Desloppify delta");
     expect(output).toContain("- worsened: 1");
+    expect(output).toContain("## Categories");
+    expect(output).toContain("dead-code: +0 added, +1 worsened");
+    expect(output).toContain("## Paths");
+    expect(output).toContain("/repo/src/example.ts: +0 added, +1 worsened");
   });
 
-  test("supports explicit report files and fail-on added,worsened", () => {
+  test("supports explicit report files, fail-on added,worsened, and json analytics", () => {
     tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-files-"));
     const base = join(tempRoot, "base");
     const head = join(tempRoot, "head");
-    writeReport(base, [issue({ id: "OLD_RULE" })]);
-    writeReport(head, [issue({ id: "NEW_RULE", severity: "HIGH" })]);
+    writeReport(base, [
+      issue({ id: "OLD_RULE", category: "dead-code", file: "/repo/src/legacy.ts" }),
+      issue({ id: "UNCHANGED_RULE", category: "complexity", file: "/repo/src/steady.ts" }),
+    ]);
+    writeReport(head, [
+      issue({ id: "NEW_RULE", category: "security-slop", severity: "HIGH", file: "/repo/src/new.ts" }),
+      issue({ id: "UNCHANGED_RULE", category: "complexity", file: "/repo/src/steady.ts" }),
+    ]);
 
     const baseReport = join(base, ".desloppify", "reports", "latest.findings.json");
     const headReport = join(head, ".desloppify", "reports", "latest.findings.json");
@@ -86,5 +96,9 @@ describe("delta command", () => {
     expect(result.exitCode).toBe(1);
     expect(delta.summary.addedCount).toBe(1);
     expect(delta.summary.resolvedCount).toBe(1);
+    expect(delta.categories[0].category).toBe("security-slop");
+    expect(delta.categories[0].regressionCount).toBe(1);
+    expect(delta.paths[0].path).toBe("/repo/src/new.ts");
+    expect(delta.paths[0].regressionCount).toBe(1);
   });
 });

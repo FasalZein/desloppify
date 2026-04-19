@@ -73,6 +73,8 @@ desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack j
                                                  # compact markdown handoff with slice context
 desloppify scan [path] --category <id> --pack js-ts
 desloppify score [path] --pack js-ts              # weighted quality grade
+desloppify delta [base] [head] --json             # compare two saved reports as JSON
+desloppify delta [base] [head]                    # human delta with category + path hotspots
 desloppify rules --pack python                    # inspect the python bundle directly
 ```
 
@@ -135,6 +137,8 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify scan --handoff --project <project> --slice <slice-id> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |
 | `desloppify score [path] --pack js-ts` | Weighted quality score + grade |
+| `desloppify delta [base] [head] --json` | Compare saved reports as JSON |
+| `desloppify delta [base] [head]` | Human delta with category + path hotspots |
 | `desloppify rules --pack python` | Python rule catalog |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
