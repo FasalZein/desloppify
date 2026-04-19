@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
+import { resolvePluginConfigExtends } from "./plugin-rules";
 import type { Issue, Severity } from "./types";
 
 export interface RuleOverride {
@@ -14,6 +15,8 @@ export interface FileOverride {
 }
 
 export interface DesloppifyConfig {
+  extends?: string[];
+  plugins?: Record<string, string>;
   rules?: Record<string, RuleOverride>;
   overrides?: FileOverride[];
 }
@@ -33,11 +36,53 @@ export function loadDesloppifyConfig(rootPath: string): LoadedDesloppifyConfig {
   for (const filename of CONFIG_FILENAMES) {
     const configPath = resolve(rootPath, filename);
     if (!existsSync(configPath)) continue;
-    const raw = JSON.parse(readFileSync(configPath, "utf8")) as DesloppifyConfig;
-    return { path: configPath, config: raw };
+    return { path: configPath, config: loadConfigFile(configPath) };
   }
 
   return { path: null, config: {} };
+}
+
+function loadConfigFile(configPath: string, seen = new Set<string>()): DesloppifyConfig {
+  const resolvedPath = resolve(configPath);
+  if (seen.has(resolvedPath)) {
+    throw new Error(`Config extends cycle detected: ${resolvedPath}`);
+  }
+
+  seen.add(resolvedPath);
+  const raw = JSON.parse(readFileSync(resolvedPath, "utf8")) as DesloppifyConfig;
+  let merged: DesloppifyConfig = {};
+
+  for (const ref of raw.extends ?? []) {
+    if (ref.startsWith("plugin:")) continue;
+    const extendedPath = resolve(dirname(resolvedPath), ref);
+    if (!existsSync(extendedPath)) {
+      throw new Error(`Cannot resolve config extends target: ${ref}`);
+    }
+    merged = mergeConfigs(merged, loadConfigFile(extendedPath, seen));
+  }
+
+  const combined = mergeConfigs(merged, { plugins: raw.plugins });
+  const pluginExtends = resolvePluginConfigExtends(raw.extends, combined, dirname(resolvedPath));
+
+  seen.delete(resolvedPath);
+  return mergeConfigs(mergeConfigs(merged, pluginExtends), { ...raw, extends: undefined });
+}
+
+function mergeConfigs(base: DesloppifyConfig, next: DesloppifyConfig): DesloppifyConfig {
+  return {
+    plugins: {
+      ...(base.plugins ?? {}),
+      ...(next.plugins ?? {}),
+    },
+    rules: {
+      ...(base.rules ?? {}),
+      ...(next.rules ?? {}),
+    },
+    overrides: [
+      ...(base.overrides ?? []),
+      ...(next.overrides ?? []),
+    ],
+  };
 }
 
 export function getRuleOverride(config: DesloppifyConfig, ruleId: string): RuleOverride | undefined {
@@ -79,7 +124,7 @@ function toRelativeConfigPath(filePath: string, rootPath: string): string {
   return (rel.startsWith("..") ? filePath : rel).split(sep).join("/");
 }
 
-function matchesConfigGlob(path: string, pattern: string): boolean {
+export function matchesConfigGlob(path: string, pattern: string): boolean {
   if (!pattern.includes("*")) return path === pattern || path.endsWith(`/${pattern}`) || path.includes(pattern);
   const doubleStarToken = "__DESLOPPIFY_DOUBLE_STAR__";
   const escaped = pattern
@@ -100,6 +145,10 @@ export function getRuleSeverityOverride(config: DesloppifyConfig, ruleId: string
 
 export function getConfigExample(): string {
   return JSON.stringify({
+    extends: ["./desloppify.base.json"],
+    plugins: {
+      local: "./desloppify.plugin.json",
+    },
     rules: {
       CONSOLE_LOG: { enabled: false },
       LONG_FILE: { severity: "HIGH", weight: 1.5 },

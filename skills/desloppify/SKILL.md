@@ -99,6 +99,8 @@ Pretty scan mode also shows the current score, grade, and concrete next actions 
 - `.desloppifyrc.json`
 
 Supported today:
+- `extends`
+- `plugins.<namespace>` for local JSON or module rule packs
 - `rules.<id>.enabled`
 - `rules.<id>.severity`
 - `rules.<id>.weight`
@@ -111,6 +113,10 @@ Example:
 
 ```json
 {
+  "extends": ["./desloppify.base.json"],
+  "plugins": {
+    "local": "./desloppify.plugin.cjs"
+  },
   "rules": {
     "CONSOLE_LOG": { "enabled": false },
     "LONG_FILE": { "severity": "HIGH", "weight": 1.5 }
@@ -123,6 +129,40 @@ Example:
       }
     }
   ]
+}
+```
+
+A local plugin file can be JSON or a local module. It can export regex-based text rules and preset configs.
+
+```js
+module.exports = {
+  rules: [
+    {
+      id: "contains-acme",
+      category: "ai-slop",
+      severity: "MEDIUM",
+      message: "Contains ACME",
+      description: "Contains ACME marker",
+      pattern: "ACME",
+      files: ["src/**"]
+    }
+  ],
+  configs: {
+    recommended: {
+      rules: {
+        "local/contains-acme": { weight: 1.5 }
+      }
+    }
+  }
+}
+```
+
+Then reference a preset with:
+
+```json
+{
+  "plugins": { "local": "./desloppify.plugin.cjs" },
+  "extends": ["plugin:local/recommended"]
 }
 ```
 

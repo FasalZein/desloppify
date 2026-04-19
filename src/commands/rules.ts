@@ -3,6 +3,7 @@ import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfi
 import { isRuleInPack, resolvePackSelection } from "../packs";
 import { BUILTIN_RULE_CATALOG } from "../rule-catalog";
 import { getRuleScoreWeight, getRuleSeverityOverride, isRuleEnabled, loadDesloppifyConfig } from "../config";
+import { getConfigPluginRuleCatalog, loadConfigPluginRules } from "../plugin-rules";
 
 export default defineCommand({
   meta: { name: "rules", description: "List all detection rules" },
@@ -21,8 +22,9 @@ export default defineCommand({
     const profile = getArchitectureProfile(architecture);
     const pack = args.pack ? resolvePackSelection(args.pack) : null;
     const loadedConfig = loadDesloppifyConfig(process.cwd());
+    const pluginCatalog = getConfigPluginRuleCatalog(loadConfigPluginRules(loadedConfig.config, process.cwd()));
 
-    const filtered = BUILTIN_RULE_CATALOG.filter((r) => {
+    const filtered = [...BUILTIN_RULE_CATALOG, ...pluginCatalog].filter((r) => {
       if (args.category && r.category !== args.category) return false;
       if (profile && !profile.ruleIds.includes(r.id)) return false;
       if (pack && !isRuleInPack(pack.name, r.id)) return false;

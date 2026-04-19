@@ -14,6 +14,7 @@ import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import { loadSavedScanReport, saveScanArtifacts } from "../report-artifacts";
 import { compareScanReports } from "../scan-delta";
 import { applyConfigToIssues, loadDesloppifyConfig } from "../config";
+import { loadConfigPluginRules, runConfigPluginRules } from "../plugin-rules";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues, showNextActions,
@@ -53,6 +54,7 @@ export default defineCommand({
     const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
     const loadedConfig = loadDesloppifyConfig(targetPath);
+    const pluginRules = loadConfigPluginRules(loadedConfig.config, targetPath);
     const allIssues: Issue[] = [];
     const isJson = args.json;
     const isWiki = args.wiki;
@@ -89,6 +91,10 @@ export default defineCommand({
     spin?.message(`Analyzing ${entries.length} files...`);
     allIssues.push(...runPackInternalAnalyzers(pack.name, entries, { architecture }));
     spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
+
+    if (pluginRules.length > 0) {
+      allIssues.push(...runConfigPluginRules(entries, pluginRules, targetPath));
+    }
 
     // Phase 3: Run external tool analyzers
     const tasks = getPackExternalTasks(pack.name, targetPath, tools, {

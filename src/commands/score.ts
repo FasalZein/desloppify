@@ -8,6 +8,7 @@ import { buildArchitectureSummary, isArchitectureProfile, resolveArchitecturePro
 import { createSpinner, humanCategory, scanIntro, scanOutro, showScore, showTools, t } from "../ui";
 import { getPackExternalTasks, resolvePackSelection, runPackInternalAnalyzers } from "../packs";
 import { applyConfigToIssues, loadDesloppifyConfig } from "../config";
+import { loadConfigPluginRules, runConfigPluginRules } from "../plugin-rules";
 import { calculateScore, CATEGORY_WEIGHTS, getGrade, MAX_CATEGORY_PENALTY, SEVERITY_POINTS } from "../scoring";
 
 const VERSION = "1.0.1";
@@ -37,6 +38,7 @@ export default defineCommand({
     const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
     const loadedConfig = loadDesloppifyConfig(targetPath);
+    const pluginRules = loadConfigPluginRules(loadedConfig.config, targetPath);
     const allIssues: Issue[] = [];
     const isJson = args.json;
     const t0 = performance.now();
@@ -57,6 +59,10 @@ export default defineCommand({
     spin?.message(`Analyzing ${entries.length} files...`);
     allIssues.push(...runPackInternalAnalyzers(pack.name, entries, { architecture }));
     spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
+
+    if (pluginRules.length > 0) {
+      allIssues.push(...runConfigPluginRules(entries, pluginRules, targetPath));
+    }
 
     const tasks = getPackExternalTasks(pack.name, targetPath, tools);
 

@@ -37,6 +37,41 @@ describe("config", () => {
     expect(isRuleEnabled(loaded.config, "TEST_RULE")).toBe(false);
   });
 
+  test("merges local and plugin extends before applying root config", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-config-extends-"));
+    writeFileSync(join(tempRoot, "base.json"), JSON.stringify({
+      rules: {
+        TEST_RULE: { severity: "HIGH", weight: 1.5 },
+        BASE_ONLY: { enabled: false },
+      },
+      overrides: [{ files: ["src/rules/**"], rules: { TEST_RULE: { enabled: false } } }],
+    }));
+    writeFileSync(join(tempRoot, "plugin.cjs"), `module.exports = { configs: { recommended: { rules: { PLUGIN_RULE: { enabled: false } } } } };`);
+    writeFileSync(join(tempRoot, "desloppify.config.json"), JSON.stringify({
+      plugins: { local: "./plugin.cjs" },
+      extends: ["./base.json", "plugin:local/recommended"],
+      rules: {
+        TEST_RULE: { severity: "CRITICAL" },
+      },
+    }));
+
+    const loaded = loadDesloppifyConfig(tempRoot);
+
+    expect(loaded.config.rules?.TEST_RULE).toEqual({ severity: "CRITICAL" });
+    expect(loaded.config.rules?.BASE_ONLY).toEqual({ enabled: false });
+    expect(loaded.config.rules?.PLUGIN_RULE).toEqual({ enabled: false });
+    expect(loaded.config.overrides).toHaveLength(1);
+  });
+
+  test("throws on extends cycles", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-config-cycle-"));
+    writeFileSync(join(tempRoot, "a.json"), JSON.stringify({ extends: ["./b.json"] }));
+    writeFileSync(join(tempRoot, "b.json"), JSON.stringify({ extends: ["./a.json"] }));
+    writeFileSync(join(tempRoot, "desloppify.config.json"), JSON.stringify({ extends: ["./a.json"] }));
+
+    expect(() => loadDesloppifyConfig(tempRoot!)).toThrow("Config extends cycle detected");
+  });
+
   test("applies top-level and file-pattern overrides to issues", () => {
     const issues = [
       issue({ id: "DISABLED_RULE", file: "/repo/src/disabled.ts" }),
