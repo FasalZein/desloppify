@@ -69,6 +69,8 @@ desloppify scan [path] --json --pack js-ts        # normalized findings JSON
 desloppify scan [path] --markdown --pack js-ts    # readable markdown report
 desloppify report [path]                          # normalized metrics + path hotspots from latest saved scan
 desloppify report [path] --json                   # emit the saved findings report JSON directly
+desloppify benchmark snapshot --manifest <file>   # build benchmark snapshot JSON from a local cohort manifest
+desloppify benchmark report --manifest <file>     # render markdown cohort report from that snapshot
 desloppify scan [path] --wiki --project <project> --pack js-ts
                                                  # wiki-forge review JSON with project context
 desloppify scan [path] --handoff --project <project> --slice <slice-id> --pack js-ts
@@ -93,6 +95,13 @@ After a normal scan, read these in order:
 4. `.desloppify/reports/latest.wiki.json` or `.desloppify/reports/latest.handoff.md`
 
 Pretty scan mode also shows the current score, grade, and concrete next actions in the terminal.
+
+For cross-repo comparisons, use a benchmark manifest and run:
+
+```bash
+desloppify benchmark snapshot --manifest ./benchmarks/manifest.json
+desloppify benchmark report --manifest ./benchmarks/manifest.json
+```
 
 ## Config overrides
 
@@ -231,6 +240,8 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify scan --markdown --pack js-ts` | Readable markdown report |
 | `desloppify report [path]` | Normalized metrics + path hotspots from latest saved scan |
 | `desloppify report [path] --json` | Emit the saved findings report JSON |
+| `desloppify benchmark snapshot --manifest <file>` | Build benchmark snapshot JSON from a local cohort manifest |
+| `desloppify benchmark report --manifest <file>` | Render markdown cohort report from that snapshot |
 | `desloppify scan --wiki --project <project> --pack js-ts` | Wiki-forge review JSON |
 | `desloppify scan --handoff --project <project> --slice <slice-id> --pack js-ts` | Compact markdown handoff |
 | `desloppify scan --category <id> --pack js-ts` | Single category scan |

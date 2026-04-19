@@ -10,6 +10,7 @@ const main = defineCommand({
   subCommands: {
     scan: () => import("./commands/scan").then((m) => m.default),
     report: () => import("./commands/report").then((m) => m.default),
+    benchmark: () => import("./commands/benchmark").then((m) => m.default),
     delta: () => import("./commands/delta").then((m) => m.default),
     fix: () => import("./commands/fix").then((m) => m.default),
     rules: () => import("./commands/rules").then((m) => m.default),

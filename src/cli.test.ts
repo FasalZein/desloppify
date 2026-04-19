@@ -33,4 +33,15 @@ describe("cli entrypoints", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.toString()).toContain("Render normalized metrics from a saved scan report");
   });
+
+  test("loads benchmark subcommand", () => {
+    const result = Bun.spawnSync(["bun", "src/cli.ts", "benchmark", "--help"], {
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toString()).toContain("Benchmark harness for pinned repo cohorts");
+  });
 });

@@ -114,6 +114,8 @@ desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify report [path]                        # normalized metrics + path hotspots from latest saved scan
 desloppify report [path] --json                 # emit the saved findings report JSON directly
+desloppify benchmark snapshot --manifest <file> # build benchmark snapshot JSON from a local cohort manifest
+desloppify benchmark report --manifest <file>   # render markdown cohort report from that snapshot
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --pack python           # weighted quality grade for Python scans
 desloppify delta [base] [head] --json           # compare saved findings reports across two repos or report paths
@@ -166,6 +168,13 @@ A normal `desloppify scan ...` run writes artifacts to:
 
 The CLI also prints these paths after the scan so agents and humans know exactly what to read next. Use `desloppify report .` when you want a compact normalized summary from the latest saved scan.
 
+For cross-repo comparisons, use a benchmark manifest and run:
+
+```bash
+desloppify benchmark snapshot --manifest ./benchmarks/manifest.json
+desloppify benchmark report --manifest ./benchmarks/manifest.json
+```
+
 Pretty scan mode also shows:
 - the current score / grade
 - issue severity summary
@@ -175,6 +184,28 @@ Recommended follow-up order:
 1. `latest.findings.json` for machine decisions
 2. `latest.report.md` for human review
 3. `latest.wiki.json` or `latest.handoff.md` for workflow handoff
+
+Example benchmark manifest:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "local-cohort",
+  "name": "Local cohort",
+  "description": "Compare one explicit-AI repo against one mature OSS repo.",
+  "artifacts": {
+    "snapshotPath": "./artifacts/benchmark.snapshot.json",
+    "reportPath": "./artifacts/benchmark.report.md"
+  },
+  "repos": [
+    { "id": "ai", "path": "../repos/ai-repo", "cohort": "explicit-ai", "pack": "js-ts" },
+    { "id": "oss", "path": "../repos/oss-repo", "cohort": "mature-oss", "pack": "js-ts" }
+  ],
+  "pairings": [
+    { "aiRepoId": "ai", "solidRepoId": "oss" }
+  ]
+}
+```
 
 ## Scoring
 
