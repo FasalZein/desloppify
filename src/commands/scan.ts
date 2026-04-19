@@ -13,6 +13,7 @@ import { runPackInternalAnalyzers } from "../packs";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import { loadSavedScanReport, saveScanArtifacts } from "../report-artifacts";
 import { compareScanReports } from "../scan-delta";
+import { applyConfigToIssues, loadDesloppifyConfig } from "../config";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues, showNextActions,
@@ -51,6 +52,7 @@ export default defineCommand({
     const architecture = resolveArchitectureProfileName(args.architecture);
     const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
+    const loadedConfig = loadDesloppifyConfig(targetPath);
     const allIssues: Issue[] = [];
     const isJson = args.json;
     const isWiki = args.wiki;
@@ -63,6 +65,7 @@ export default defineCommand({
       showTools(tools);
       p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);
+      if (loadedConfig.path) p.log.info(`Config: ${loadedConfig.path}`);
     }
 
     const spin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
@@ -107,10 +110,12 @@ export default defineCommand({
       p.log.info("Partial scan mode skips whole-project analyzers (knip, madge, ast-grep, tsc)");
     }
 
+    const configuredIssues = applyConfigToIssues(allIssues, loadedConfig.config, targetPath);
+
     // Filter by category if specified
     const filtered = args.category
-      ? allIssues.filter((i) => i.category === args.category)
-      : allIssues;
+      ? configuredIssues.filter((i) => i.category === args.category)
+      : configuredIssues;
 
     const elapsed = performance.now() - t0;
 

@@ -121,7 +121,8 @@ desloppify delta [base] [head] --markdown       # regressions-only markdown + sa
 desloppify delta [base] [head] --comment --max-findings 8
                                               # compact PR/CI comment + saved latest.delta.comment.md
 desloppify delta [base] [head]                  # human delta with category + path hotspots
-desloppify rules                                # list all detection rules
+desloppify rules                                # list all detection rules after config overrides
+desloppify score [path]                         # score also respects desloppify.config.json
 desloppify rules --pack python                  # python-specific rule bundle
 desloppify rules --architecture modular-monolith # active architecture bundle only
 desloppify fix [path] --safe                    # auto-fix safe mechanical issues
@@ -200,6 +201,44 @@ Desloppify is moving toward a language-agnostic core with explicit first-party p
 Run `desloppify check-tools .` before your first scan to see the available packs for the repo and the suggested pack when the choice is unambiguous.
 
 More packs can be added without changing the core scan/report contract.
+
+## Configuration
+
+`desloppify` now supports repo-local config discovery:
+
+- `desloppify.config.json`
+- `.desloppifyrc`
+- `.desloppifyrc.json`
+
+Current support is intentionally small and deterministic:
+- `rules.<id>.enabled`
+- `rules.<id>.severity`
+- `rules.<id>.weight`
+- `overrides[].files`
+- `overrides[].rules.<id>.enabled`
+- `overrides[].rules.<id>.severity`
+- `overrides[].rules.<id>.weight`
+
+Example:
+
+```json
+{
+  "rules": {
+    "CONSOLE_LOG": { "enabled": false },
+    "LONG_FILE": { "severity": "HIGH", "weight": 1.5 }
+  },
+  "overrides": [
+    {
+      "files": ["src/rules/**"],
+      "rules": {
+        "LONG_FILE": { "enabled": false }
+      }
+    }
+  ]
+}
+```
+
+This lets you tune built-in rules without forking the tool. It is the first step toward reference-repo-style config/plugin extensibility.
 
 ## False positives
 

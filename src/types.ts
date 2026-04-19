@@ -36,6 +36,7 @@ export interface Issue {
   message: string;
   fix?: string;
   tool: string;
+  scoreWeight?: number;
 }
 
 export interface ToolStatus {

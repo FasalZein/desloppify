@@ -91,6 +91,43 @@ After a normal scan, read these in order:
 
 Pretty scan mode also shows the current score, grade, and concrete next actions in the terminal.
 
+## Config overrides
+
+`desloppify` now reads repo-local config from:
+- `desloppify.config.json`
+- `.desloppifyrc`
+- `.desloppifyrc.json`
+
+Supported today:
+- `rules.<id>.enabled`
+- `rules.<id>.severity`
+- `rules.<id>.weight`
+- `overrides[].files`
+- `overrides[].rules.<id>.enabled`
+- `overrides[].rules.<id>.severity`
+- `overrides[].rules.<id>.weight`
+
+Example:
+
+```json
+{
+  "rules": {
+    "CONSOLE_LOG": { "enabled": false },
+    "LONG_FILE": { "severity": "HIGH", "weight": 1.5 }
+  },
+  "overrides": [
+    {
+      "files": ["src/rules/**"],
+      "rules": {
+        "LONG_FILE": { "enabled": false }
+      }
+    }
+  ]
+}
+```
+
+This is the first extensibility step toward reference-style config/plugin support.
+
 ## Step 2: Triage
 
 For each category with issues, decide:
@@ -151,6 +188,7 @@ desloppify scan [path]                    # confirm improvement
 | `desloppify delta [base] [head] --comment --max-findings 8` | Compact PR/CI comment + saved artifact |
 | `desloppify delta [base] [head]` | Human delta with category + path hotspots |
 | `desloppify rules --pack python` | Python rule catalog |
+| `desloppify.config.json` | Repo-local built-in rule overrides |
 | `desloppify fix [path] --safe` | Tier 1: mechanical fixes only |
 | `desloppify fix --confident` | Tier 1-2: + AST-validated |
 | `desloppify fix --all` | Tier 1-3: + cross-file |

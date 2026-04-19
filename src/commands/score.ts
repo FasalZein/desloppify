@@ -7,6 +7,7 @@ import { walkFiles } from "../analyzers/file-walker";
 import { buildArchitectureSummary, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { createSpinner, humanCategory, scanIntro, scanOutro, showScore, showTools, t } from "../ui";
 import { getPackExternalTasks, resolvePackSelection, runPackInternalAnalyzers } from "../packs";
+import { applyConfigToIssues, loadDesloppifyConfig } from "../config";
 import { calculateScore, CATEGORY_WEIGHTS, getGrade, MAX_CATEGORY_PENALTY, SEVERITY_POINTS } from "../scoring";
 
 const VERSION = "1.0.1";
@@ -35,6 +36,7 @@ export default defineCommand({
     const architecture = resolveArchitectureProfileName(args.architecture);
     const pack = resolvePackSelection(args.pack);
     const tools = detectTools();
+    const loadedConfig = loadDesloppifyConfig(targetPath);
     const allIssues: Issue[] = [];
     const isJson = args.json;
     const t0 = performance.now();
@@ -44,6 +46,7 @@ export default defineCommand({
       showTools(tools);
       p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);
+      if (loadedConfig.path) p.log.info(`Config: ${loadedConfig.path}`);
     }
 
     const spin = isJson ? null : createSpinner();
@@ -69,9 +72,10 @@ export default defineCommand({
       extSpin?.stop(`External tools done — ${extCount} additional issues`);
     }
 
-    const { score, grade, penalty, categoryScores } = calculateScore(allIssues);
+    const configuredIssues = applyConfigToIssues(allIssues, loadedConfig.config, targetPath);
+    const { score, grade, penalty, categoryScores } = calculateScore(configuredIssues);
 
-    const architectureSummary = buildArchitectureSummary(architecture, allIssues);
+    const architectureSummary = buildArchitectureSummary(architecture, configuredIssues);
 
     if (isJson) {
       console.log(JSON.stringify({
@@ -79,14 +83,14 @@ export default defineCommand({
         grade,
         pack,
         architecture: architectureSummary,
-        totalIssues: allIssues.length,
+        totalIssues: configuredIssues.length,
         totalPenalty: Math.round(penalty * 10) / 10,
         categories: categoryScores,
       }, null, 2));
       return;
     }
 
-    showScore(score, grade, allIssues.length, penalty);
+    showScore(score, grade, configuredIssues.length, penalty);
 
     const sorted = Object.entries(categoryScores)
       .sort((a, b) => b[1].penalty - a[1].penalty);

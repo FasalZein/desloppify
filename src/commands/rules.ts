@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { getArchitectureProfile, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
 import { isRuleInPack, resolvePackSelection } from "../packs";
 import { BUILTIN_RULE_CATALOG } from "../rule-catalog";
+import { getRuleScoreWeight, getRuleSeverityOverride, isRuleEnabled, loadDesloppifyConfig } from "../config";
 
 export default defineCommand({
   meta: { name: "rules", description: "List all detection rules" },
@@ -19,13 +20,19 @@ export default defineCommand({
     const architecture = resolveArchitectureProfileName(args.architecture);
     const profile = getArchitectureProfile(architecture);
     const pack = args.pack ? resolvePackSelection(args.pack) : null;
+    const loadedConfig = loadDesloppifyConfig(process.cwd());
 
     const filtered = BUILTIN_RULE_CATALOG.filter((r) => {
       if (args.category && r.category !== args.category) return false;
       if (profile && !profile.ruleIds.includes(r.id)) return false;
       if (pack && !isRuleInPack(pack.name, r.id)) return false;
+      if (!isRuleEnabled(loadedConfig.config, r.id)) return false;
       return true;
-    });
+    }).map((rule) => ({
+      ...rule,
+      severityOverride: getRuleSeverityOverride(loadedConfig.config, rule.id) ?? null,
+      scoreWeight: getRuleScoreWeight(loadedConfig.config, rule.id) ?? null,
+    }));
 
     if (args.json) {
       console.log(JSON.stringify(filtered, null, 2));
@@ -43,14 +50,22 @@ export default defineCommand({
       console.log(`Pack: ${pack.name}`);
       console.log("");
     }
+    if (loadedConfig.path) {
+      console.log(`Config: ${loadedConfig.path}`);
+      console.log("");
+    }
 
     console.log(`${"RULE".padEnd(maxId)}  ${"CATEGORY".padEnd(maxCat)}  TIER  TOOL      DESCRIPTION`);
     console.log("─".repeat(maxId + maxCat + 50));
 
     for (const r of filtered) {
       const tierStr = r.tier === 0 ? "flag" : `T${r.tier}  `;
+      const overrides = [
+        r.severityOverride ? `severity=${r.severityOverride}` : null,
+        r.scoreWeight ? `weight=${r.scoreWeight}` : null,
+      ].filter(Boolean).join(", ");
       console.log(
-        `${r.id.padEnd(maxId)}  ${r.category.padEnd(maxCat)}  ${tierStr}  ${r.tool.padEnd(8)}  ${r.desc}`
+        `${r.id.padEnd(maxId)}  ${r.category.padEnd(maxCat)}  ${tierStr}  ${r.tool.padEnd(8)}  ${overrides ? `${r.desc} (${overrides})` : r.desc}`
       );
     }
 

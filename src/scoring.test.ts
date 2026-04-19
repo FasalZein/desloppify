@@ -37,6 +37,16 @@ describe("scoring", () => {
     expect(result.grade).toBe("A");
   });
 
+  test("applies per-rule score weight overrides", () => {
+    const result = calculateScore([
+      issue({ category: "security-slop", severity: "HIGH", scoreWeight: 2 }),
+    ]);
+
+    expect(result.penalty).toBe(12);
+    expect(result.score).toBe(88);
+    expect(result.grade).toBe("A");
+  });
+
   test("maps score ranges", () => {
     expect(getGrade(96)).toBe("A+");
     expect(getGrade(85)).toBe("A");

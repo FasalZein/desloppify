@@ -48,7 +48,8 @@ export function calculateScore(issues: Issue[]): {
   for (const issue of issues) {
     const sevPoints = SEVERITY_POINTS[issue.severity] ?? 1;
     const catWeight = CATEGORY_WEIGHTS[issue.category] ?? 1.0;
-    const penalty = sevPoints * catWeight;
+    const ruleWeight = issue.scoreWeight ?? 1.0;
+    const penalty = sevPoints * catWeight * ruleWeight;
 
     if (!categoryScores[issue.category]) {
       categoryScores[issue.category] = { count: 0, penalty: 0, weight: catWeight };
