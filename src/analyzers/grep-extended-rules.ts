@@ -422,5 +422,5 @@ export const GREP_EXTENDED_RULES: GrepExtendedRuleDefinition[] = [
 ];
 
 export const GREP_EXTENDED_RULE_CATALOG = GREP_EXTENDED_RULES
-  .filter((rule) => rule.pattern.source !== "^$")
+  .filter((rule) => rule.pattern.source !== "^$" && rule.fileFilter?.source !== "^$")
   .map(({ id, category, tier, desc }) => ({ id, category, tier, tool: "grep", desc }));

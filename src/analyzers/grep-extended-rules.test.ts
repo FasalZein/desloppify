@@ -13,5 +13,6 @@ describe("grep-extended rule family", () => {
 
     expect(GREP_EXTENDED_RULE_CATALOG.every((rule) => ids.has(rule.id))).toBe(true);
     expect(GREP_EXTENDED_RULE_CATALOG.find((rule) => rule.id === "THROW_NON_ERROR")?.tool).toBe("grep");
+    expect(GREP_EXTENDED_RULE_CATALOG.map((rule) => rule.id)).not.toContain("MANY_USESTATE");
   });
 });
