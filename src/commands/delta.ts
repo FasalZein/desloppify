@@ -20,8 +20,17 @@ interface DeltaAnalyticsBucket {
 interface DeltaCommandJson extends ScanDeltaReport {
   basePath: string;
   headPath: string;
+  scope: {
+    category: Category | null;
+    path: string | null;
+  };
   categories: Array<DeltaAnalyticsBucket & { category: Category }>;
   paths: Array<DeltaAnalyticsBucket & { path: string }>;
+}
+
+interface DeltaScope {
+  category?: Category;
+  path?: string;
 }
 
 export default defineCommand({
@@ -32,32 +41,39 @@ export default defineCommand({
     "base-report": { type: "string", description: "Explicit base findings.json path" },
     "head-report": { type: "string", description: "Explicit head findings.json path" },
     json: { type: "boolean", description: "Machine-readable JSON output" },
+    category: { type: "string", description: "Limit delta output to one category" },
+    path: { type: "string", description: "Limit delta output to one path or glob" },
     "fail-on": { type: "string", description: "Comma-separated statuses: added,worsened,resolved,improved,any" },
   },
   run({ args }) {
     const baseReport = loadScanReport(resolveInput(args.base, args["base-report"], "base"));
     const headReport = loadScanReport(resolveInput(args.head, args["head-report"], "head"));
     const delta = compareScanReports(baseReport, headReport);
+    const scope = parseScope(args.category, args.path);
+    const scopedDelta = filterDelta(delta, scope);
     const failOn = parseFailOn(args["fail-on"]);
 
-    const jsonReport = buildDeltaCommandJson(baseReport, headReport, delta);
+    const jsonReport = buildDeltaCommandJson(baseReport, headReport, scopedDelta, scope);
 
     if (args.json) {
       console.log(JSON.stringify(jsonReport, null, 2));
-      process.exit(shouldFail(delta, failOn) ? 1 : 0);
+      process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
     }
 
     console.log("# Desloppify delta");
     console.log(`Base: ${baseReport.scan.path}`);
     console.log(`Head: ${headReport.scan.path}`);
+    if (scope.category || scope.path) {
+      console.log(`Scope: ${formatScope(scope)}`);
+    }
     console.log("");
-    console.log(`- added: ${delta.summary.addedCount}`);
-    console.log(`- resolved: ${delta.summary.resolvedCount}`);
-    console.log(`- worsened: ${delta.summary.worsenedCount}`);
-    console.log(`- improved: ${delta.summary.improvedCount}`);
-    console.log(`- unchanged: ${delta.summary.unchangedCount}`);
+    console.log(`- added: ${scopedDelta.summary.addedCount}`);
+    console.log(`- resolved: ${scopedDelta.summary.resolvedCount}`);
+    console.log(`- worsened: ${scopedDelta.summary.worsenedCount}`);
+    console.log(`- improved: ${scopedDelta.summary.improvedCount}`);
+    console.log(`- unchanged: ${scopedDelta.summary.unchangedCount}`);
 
-    const notable = delta.changes.filter((change) => change.status !== "unchanged");
+    const notable = scopedDelta.changes.filter((change) => change.status !== "unchanged");
     if (jsonReport.categories.length > 0) {
       console.log("");
       console.log("## Categories");
@@ -87,7 +103,7 @@ export default defineCommand({
       console.log(`Fail on: ${failOn.join(",")}`);
     }
 
-    process.exit(shouldFail(delta, failOn) ? 1 : 0);
+    process.exit(shouldFail(scopedDelta, failOn) ? 1 : 0);
   },
 });
 
@@ -117,15 +133,43 @@ function parseFailOn(input: string | undefined): DeltaStatus[] {
   return values as DeltaStatus[];
 }
 
+function parseScope(categoryInput: string | undefined, pathInput: string | undefined): DeltaScope {
+  const scope: DeltaScope = {};
+
+  if (categoryInput) {
+    scope.category = categoryInput as Category;
+  }
+
+  if (pathInput) {
+    scope.path = pathInput;
+  }
+
+  return scope;
+}
+
 function shouldFail(delta: ScanDeltaReport, failOn: DeltaStatus[]): boolean {
   if (failOn.length === 0) return false;
   return delta.changes.some((change) => failOn.includes(change.status));
 }
 
-function buildDeltaCommandJson(base: ScanReport, head: ScanReport, delta: ScanDeltaReport): DeltaCommandJson {
+function filterDelta(delta: ScanDeltaReport, scope: DeltaScope): ScanDeltaReport {
+  if (!scope.category && !scope.path) return delta;
+
+  const changes = delta.changes.filter((change) => matchesScope(change, scope));
+  return {
+    summary: buildSummary(changes),
+    changes,
+  };
+}
+
+function buildDeltaCommandJson(base: ScanReport, head: ScanReport, delta: ScanDeltaReport, scope: DeltaScope): DeltaCommandJson {
   return {
     basePath: base.scan.path,
     headPath: head.scan.path,
+    scope: {
+      category: scope.category ?? null,
+      path: scope.path ?? null,
+    },
     ...delta,
     categories: summarizeByCategory(delta),
     paths: summarizeByPath(delta),
@@ -160,6 +204,54 @@ function summarizeByPath(delta: ScanDeltaReport): Array<DeltaAnalyticsBucket & {
   }
 
   return sortBuckets([...buckets.values()]);
+}
+
+function matchesScope(change: ScanDeltaReport["changes"][number], scope: DeltaScope): boolean {
+  if (scope.category) {
+    const category = change.head?.category ?? change.base?.category;
+    if (category !== scope.category) return false;
+  }
+
+  if (scope.path) {
+    const path = change.path ?? change.head?.locations[0]?.path ?? change.base?.locations[0]?.path;
+    if (!path || !matchesPathScope(path, scope.path)) return false;
+  }
+
+  return true;
+}
+
+function matchesPathScope(path: string, pattern: string): boolean {
+  if (!pattern.includes("*")) return path.includes(pattern);
+  const doubleStarToken = "__DESLOPPIFY_DOUBLE_STAR__";
+  const escaped = escapeRegex(pattern)
+    .replace(/\*\*/g, doubleStarToken)
+    .replace(/\*/g, "[^/]*")
+    .replaceAll(doubleStarToken, ".*");
+  return new RegExp(`^${escaped}$`).test(path);
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
+
+function buildSummary(changes: ScanDeltaReport["changes"]): ScanDeltaReport["summary"] {
+  return {
+    baseFindingCount: changes.filter((change) => change.base).length,
+    headFindingCount: changes.filter((change) => change.head).length,
+    addedCount: changes.filter((change) => change.status === "added").length,
+    resolvedCount: changes.filter((change) => change.status === "resolved").length,
+    unchangedCount: changes.filter((change) => change.status === "unchanged").length,
+    worsenedCount: changes.filter((change) => change.status === "worsened").length,
+    improvedCount: changes.filter((change) => change.status === "improved").length,
+    changed: changes.some((change) => change.status !== "unchanged"),
+  };
+}
+
+function formatScope(scope: DeltaScope): string {
+  return [
+    scope.category ? `category=${scope.category}` : null,
+    scope.path ? `path=${scope.path}` : null,
+  ].filter(Boolean).join(", ");
 }
 
 function createBucket<T extends { key: string }>(key: string, extra: Omit<T, "key">): DeltaAnalyticsBucket & T {

@@ -49,10 +49,12 @@ const run = (args: string[]) => Bun.spawnSync(["bun", "src/cli.ts", "delta", ...
 });
 
 describe("delta command", () => {
-  test("declares report and fail-on args", () => {
+  test("declares report, scope, and fail-on args", () => {
     expect(command.meta.name).toBe("delta");
     expect(command.args).toHaveProperty("base-report");
     expect(command.args).toHaveProperty("head-report");
+    expect(command.args).toHaveProperty("category");
+    expect(command.args).toHaveProperty("path");
     expect(command.args).toHaveProperty("fail-on");
   });
 
@@ -100,5 +102,47 @@ describe("delta command", () => {
     expect(delta.categories[0].regressionCount).toBe(1);
     expect(delta.paths[0].path).toBe("/repo/src/new.ts");
     expect(delta.paths[0].regressionCount).toBe(1);
+  });
+
+  test("scopes fail-on and analytics to one category", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-category-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, [issue({ id: "KEEP", category: "dead-code", file: "/repo/src/keep.ts" })]);
+    writeReport(head, [
+      issue({ id: "KEEP", category: "dead-code", file: "/repo/src/keep.ts" }),
+      issue({ id: "NEW_SECURITY", category: "security-slop", severity: "HIGH", file: "/repo/src/security.ts" }),
+    ]);
+
+    const result = run([base, head, "--category", "dead-code", "--fail-on", "added,worsened", "--json"]);
+    const delta = JSON.parse(result.stdout.toString());
+
+    expect(result.exitCode).toBe(0);
+    expect(delta.scope.category).toBe("dead-code");
+    expect(delta.summary.addedCount).toBe(0);
+    expect(delta.summary.unchangedCount).toBe(1);
+    expect(delta.categories).toHaveLength(0);
+    expect(delta.paths).toHaveLength(0);
+  });
+
+  test("scopes fail-on and analytics to one path glob", () => {
+    tempRoot = mkdtempSync(join(tmpdir(), "desloppify-delta-path-"));
+    const base = join(tempRoot, "base");
+    const head = join(tempRoot, "head");
+    writeReport(base, [issue({ id: "KEEP", category: "dead-code", file: "/repo/src/keep.ts" })]);
+    writeReport(head, [
+      issue({ id: "KEEP", category: "dead-code", file: "/repo/src/keep.ts" }),
+      issue({ id: "NEW_SECURITY", category: "security-slop", severity: "HIGH", file: "/repo/src/security/new.ts" }),
+      issue({ id: "NEW_DEAD", category: "dead-code", severity: "HIGH", file: "/repo/src/dead/new.ts" }),
+    ]);
+
+    const result = run([base, head, "--path", "**/dead/*.ts", "--fail-on", "added,worsened"]);
+    const output = result.stdout.toString();
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain("Scope: path=**/dead/*.ts");
+    expect(output).toContain("- added: 1");
+    expect(output).toContain("/repo/src/dead/new.ts: +1 added");
+    expect(output).not.toContain("/repo/src/security/new.ts");
   });
 });
