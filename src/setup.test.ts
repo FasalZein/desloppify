@@ -27,6 +27,19 @@ describe("setup helpers", () => {
     expect(install.display).toContain("DESLOPPIFY_HOOK_SCOPE");
   });
 
+  test("printed hook install script fails fast outside a git repo", () => {
+    const outsideRepo = mkdtempSync(join(tmpdir(), "desloppify-hooks-no-git-"));
+    const install = getHooksInstallCommand();
+    const result = spawnSync("sh", ["-c", install.display], {
+      cwd: outsideRepo,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("desloppify install-hooks must run inside a git repository");
+    expect(existsSync(join(outsideRepo, ".githooks", "pre-commit"))).toBe(false);
+  });
+
   test("printed hook install script targets the git root even from a subdirectory", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-print-"));
     expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
@@ -43,6 +56,21 @@ describe("setup helpers", () => {
     expect(result.status).toBe(0);
     expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
     expect(existsSync(join(subdir, ".githooks", "pre-commit"))).toBe(false);
+  });
+
+  test("printed hook install script accepts trailing-slash default hooksPath", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-print-default-trailing-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("git", ["config", "core.hooksPath", ".git/hooks/"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const install = getHooksInstallCommand();
+    const result = spawnSync("sh", ["-c", install.display], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(0);
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
   });
 
   test("printed hook install script matches runtime behavior for extra managed-directory hooks", () => {
