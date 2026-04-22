@@ -88,7 +88,7 @@ describe("setup helpers", () => {
     expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
   });
 
-  test("allows an explicit default .git/hooks path", () => {
+  test("allows an explicit default .git/hooks path when no legacy hooks exist", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-default-"));
     expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
     expect(spawnSync("git", ["config", "core.hooksPath", ".git/hooks"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
@@ -96,6 +96,15 @@ describe("setup helpers", () => {
     const result = installHooks(repoRoot);
     expect(result.hooksDir).toBe(join(result.repoRoot, ".githooks"));
     expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
+  });
+
+  test("refuses to disable legacy hooks in .git/hooks", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-legacy-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    writeFileSync(join(repoRoot, ".git", "hooks", "pre-commit"), "#!/bin/sh\necho legacy hook\n");
+
+    expect(() => installHooks(repoRoot)).toThrow("Refusing to disable existing hook");
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(false);
   });
 
   test("ignores inherited global hooksPath when installing repo-local hooks", () => {

@@ -56,11 +56,14 @@ function normalizeHooksPath(repoRoot: string, hooksPath: string): string {
   return hooksPath;
 }
 
-function isAllowedHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
+function isManagedHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
   if (!hooksPath) return false;
+  return normalizeHooksPath(repoRoot, hooksPath) === join(realpathSync(repoRoot), ".githooks");
+}
 
-  const normalized = normalizeHooksPath(repoRoot, hooksPath);
-  return normalized === join(realpathSync(repoRoot), ".githooks") || normalized === join(realpathSync(repoRoot), ".git", "hooks");
+function isDefaultHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
+  if (!hooksPath) return false;
+  return normalizeHooksPath(repoRoot, hooksPath) === join(realpathSync(repoRoot), ".git", "hooks");
 }
 
 function readCurrentHooksPath(repoRoot: string): string | null {
@@ -73,11 +76,34 @@ function readCurrentHooksPath(repoRoot: string): string | null {
   return result.stdout.trim() || null;
 }
 
+function assertNoActiveLegacyHooks(activeHooksDir: string) {
+  for (const hookName of ["pre-commit", "pre-push"] as const) {
+    const hookPath = join(activeHooksDir, hookName);
+    if (!existsSync(hookPath)) continue;
+
+    const currentContents = readFileSync(hookPath, "utf8");
+    if (currentContents.includes(MANAGED_HOOK_MARKER)) continue;
+
+    throw new Error(`Refusing to disable existing hook: ${hookPath}`);
+  }
+}
+
 function assertHooksPathCanBeConfigured(repoRoot: string) {
   const currentHooksPath = readCurrentHooksPath(repoRoot);
-  if (!currentHooksPath || isAllowedHooksPath(repoRoot, currentHooksPath)) return;
+  const managedHooksDir = join(realpathSync(repoRoot), ".githooks");
+  const defaultHooksDir = join(realpathSync(repoRoot), ".git", "hooks");
 
-  throw new Error(`Refusing to replace existing core.hooksPath=${currentHooksPath}`);
+  if (currentHooksPath) {
+    if (isManagedHooksPath(repoRoot, currentHooksPath)) return;
+    if (!isDefaultHooksPath(repoRoot, currentHooksPath)) {
+      throw new Error(`Refusing to replace existing core.hooksPath=${currentHooksPath}`);
+    }
+  }
+
+  const activeHooksDir = currentHooksPath ? defaultHooksDir : defaultHooksDir;
+  if (activeHooksDir !== managedHooksDir) {
+    assertNoActiveLegacyHooks(activeHooksDir);
+  }
 }
 
 function assertHookCanBeWritten(hookPath: string, nextContents: string) {
@@ -107,6 +133,17 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
     '  printf "%s\\n" "Refusing to replace existing core.hooksPath=$current_hooks_path" >&2',
     '  exit 1',
     'fi',
+    'active_hooks_dir="$default_hooks_path"',
+    'if [ "$current_hooks_path" = ".githooks" ] || [ "$current_hooks_path" = "./.githooks" ] || [ "$current_hooks_path" = "$managed_hooks_path" ]; then',
+    '  active_hooks_dir="$managed_hooks_path"',
+    'fi',
+    'for hook_name in pre-commit pre-push; do',
+    '  hook_path="$active_hooks_dir/$hook_name"',
+    `  if [ -f "$hook_path" ] && ! grep -q '${MANAGED_HOOK_MARKER}' "$hook_path"; then`,
+    '    printf "%s\\n" "Refusing to disable existing hook: $hook_path" >&2',
+    '    exit 1',
+    '  fi',
+    'done',
     'mkdir -p "$repo_root/.githooks"',
     'write_hook() {',
     '  hook_path="$1"',
