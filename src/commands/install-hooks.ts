@@ -1,7 +1,6 @@
-import { spawnSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import { defineCommand } from "citty";
-import { getHooksInstallCommand } from "../setup";
+import { getHooksInstallCommand, installHooks } from "../setup";
 
 export default defineCommand({
   meta: { name: "install-hooks", description: "Install the repo-local git hooks for staged and branch-diff scans" },
@@ -17,21 +16,11 @@ export default defineCommand({
     }
 
     p.intro("desloppify install-hooks");
-    p.log.info(`Running: ${install.display}`);
 
-    const result = spawnSync(install.command, install.args, {
-      stdio: "inherit",
-      shell: true,
-    });
+    const { repoRoot, hooksDir } = installHooks();
 
-    if (result.error) {
-      throw result.error;
-    }
-
-    if ((result.status ?? 0) !== 0) {
-      process.exit(result.status ?? 1);
-    }
-
+    p.log.info(`Scaffolded hooks in: ${hooksDir}`);
+    p.log.info(`Configured core.hooksPath in: ${repoRoot}`);
     p.outro("Hooks installed");
   },
 });

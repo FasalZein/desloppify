@@ -2,8 +2,15 @@
 set -eu
 
 PACK=${DESLOPPIFY_PACK:-js-ts}
+SCOPE=${DESLOPPIFY_HOOK_SCOPE:-diff}
 
-printf '\n[desloppify] scanning staged changes with pack %s...\n' "$PACK"
-OUTPUT=$(bun src/cli.ts scan . --staged --json --pack "$PACK" || true)
+if [ "$SCOPE" = "repo" ]; then
+  printf '\n[desloppify] scanning whole repo with pack %s...\n' "$PACK"
+  OUTPUT=$(bun src/cli.ts scan . --json --pack "$PACK" || true)
+else
+  printf '\n[desloppify] scanning staged changes with pack %s...\n' "$PACK"
+  OUTPUT=$(bun src/cli.ts scan . --staged --json --pack "$PACK" || true)
+fi
+
 printf '%s\n' "$OUTPUT"
 printf '%s' "$OUTPUT" | bun src/hook-gate.ts commit

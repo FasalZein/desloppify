@@ -147,8 +147,8 @@ The detailed instructions live in `skills/desloppify/reference/overhaul-review.m
 desloppify setup                                # guided first-run setup
 desloppify install-skill --print                # print the canonical skill install command
 desloppify install-skill                        # run npx skills add FasalZein/desloppify
-desloppify install-hooks --print                # print the canonical git hook install command
-desloppify install-hooks                        # install repo-local pre-commit / pre-push hooks
+desloppify install-hooks --print                # print the hook scaffold + git config script
+desloppify install-hooks                        # scaffold repo-local pre-commit / pre-push hooks and enable them
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
 desloppify scan [path] --pack python            # first non-JS pack for Python repos
 desloppify scan [path] --pack rust              # Rust pack (ast-grep proof pack)
@@ -206,13 +206,14 @@ desloppify install-hooks
 desloppify install-hooks --print
 ```
 
-This installs repo-local hooks via `.githooks/`:
+This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hooksPath .githooks` for the current repo.
 
 - `pre-commit` → scans `--staged`
 - `pre-push` → scans `--changed`
 
-Both hooks scan only the diff on your branch, not the whole repo, and block only on `HIGH`/`CRITICAL` findings.
+By default the hooks scan only current changes and block only on `HIGH`/`CRITICAL` findings.
 Set `DESLOPPIFY_PACK=<pack>` if you need a different pack in hook runs.
+Set `DESLOPPIFY_HOOK_SCOPE=repo` if hook runs should scan the whole repo instead of the current diff.
 
 ## Saved report artifacts
 
