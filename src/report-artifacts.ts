@@ -1,30 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ScanDeltaReport } from "./scan-delta";
+import { getScanWorkflowArtifacts, type ScanWorkflowArtifacts } from "./scan-workflow";
 import type { ScanReport } from "./types";
 import type { WikiReport } from "./wiki-output";
 
 const LOCAL_REPORTS_DIR = ".desloppify/";
 
-interface SavedReportArtifacts {
-  dir: string;
-  findingsJson: string;
-  reportMarkdown: string;
-  wikiJson: string;
-  handoffMarkdown: string;
-  deltaJson: string;
-}
+type SavedReportArtifacts = ScanWorkflowArtifacts;
 
 export function getReportArtifacts(rootPath: string): SavedReportArtifacts {
-  const dir = join(rootPath, ".desloppify", "reports");
-  return {
-    dir,
-    findingsJson: join(dir, "latest.findings.json"),
-    reportMarkdown: join(dir, "latest.report.md"),
-    wikiJson: join(dir, "latest.wiki.json"),
-    handoffMarkdown: join(dir, "latest.handoff.md"),
-    deltaJson: join(dir, "latest.delta.json"),
-  };
+  return getScanWorkflowArtifacts(rootPath);
 }
 
 export function loadSavedScanReport(rootPath: string): ScanReport | undefined {

@@ -9,6 +9,7 @@ import { getPackMeta, resolvePackSelection } from "../packs";
 import { createAnalysisContext, getAnalysisScopeLabel, resolveAnalysisEntries, runAnalysisPipeline } from "../scan-service";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import { loadSavedScanReport, saveScanArtifacts } from "../report-artifacts";
+import { buildWorkflowCommands } from "../scan-workflow";
 import { compareScanReports } from "../scan-delta";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
@@ -122,6 +123,11 @@ export default defineCommand({
     const handoffMarkdown = formatWikiHandoffMarkdown(wikiReport);
 
     const artifacts = saveScanArtifacts(targetPath, report, wikiReport, reportMarkdown, handoffMarkdown, deltaReport);
+    const workflowCommands = buildWorkflowCommands({
+      rootPath: targetPath,
+      project: args.project,
+      hasDelta: Boolean(deltaReport),
+    });
 
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
@@ -211,13 +217,13 @@ export default defineCommand({
       `Show normalized report: desloppify report ${args.path}`,
       `Show the current score again: desloppify score ${args.path} --pack ${pack.name}`,
       filtered.length > 0
-        ? `Read machine findings: cat ${artifacts.findingsJson}`
+        ? `Read machine findings: ${workflowCommands[0]?.command}`
         : `Install repo-local hooks: desloppify install-hooks`,
       deltaReport
-        ? `Review scan delta: cat ${artifacts.deltaJson}`
+        ? `Review scan delta: ${workflowCommands[1]?.command}`
         : `Run scan again later to compare against this baseline: desloppify scan ${args.path} --pack ${pack.name}`,
       filtered.length > 0
-        ? `Prepare isolated fixes: desloppify worktrees ${args.path}`
+        ? `Prepare isolated fixes: ${workflowCommands[deltaReport ? 2 : 1]?.command}`
         : `Run a focused diff scan before commit: desloppify scan ${args.path} --staged --pack ${pack.name}`,
     ];
     showNextActions(nextActions);

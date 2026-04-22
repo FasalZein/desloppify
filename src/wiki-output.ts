@@ -1,4 +1,12 @@
 import type { ScanDeltaReport } from "./scan-delta";
+import {
+  buildNextSessionPrompt,
+  buildWorkflowCommands,
+  buildWorkflowNextSteps,
+  getScanWorkflowArtifacts,
+  getBlockingFindings,
+  type WikiWorkflowCommand,
+} from "./scan-workflow";
 import type { Finding, RuleDefinition, ScanReport } from "./types";
 
 interface WikiWorkflowContext {
@@ -14,16 +22,6 @@ export interface WikiAction {
   priority: number;
   message: string;
   findingIds?: string[];
-}
-
-export interface WikiWorkflowCommand {
-  id: string;
-  label: string;
-  command: string;
-  exec?: {
-    command: string;
-    args: string[];
-  };
 }
 
 export interface WikiReport {
@@ -89,7 +87,7 @@ function primaryLocation(finding: Finding) {
 }
 
 export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext = {}): WikiReport {
-  const blockingFindings = report.findings.filter(isBlocking);
+  const blockingFindings = getBlockingFindings(report.findings);
   const warningFindings = report.findings.filter((finding) => finding.severity === "MEDIUM");
   const infoFindings = report.findings.filter((finding) => finding.severity === "LOW");
   const delta = context.deltaReport ?? null;
@@ -145,66 +143,19 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
       : "Run wiki closeout after code and wiki pages are updated",
   });
 
-  const closeoutCommand = context.project
-    ? `wiki closeout ${context.project} --repo <path> --base <rev>`
-    : "wiki closeout <project> --repo <path> --base <rev>";
-
-  const nextSteps = newBlockingFindings.length > 0
-    ? [
-        "Fix newly introduced blocking findings",
-        delta ? "Review the delta report for new and resolved findings" : "Review the current findings report",
-        "Update impacted wiki pages from code",
-        closeoutCommand,
-      ]
-    : blockingFindings.length > 0
-      ? [
-          "Fix blocking findings",
-          delta ? "Review the delta report for newly introduced findings" : "Review the current findings report",
-          "Update impacted wiki pages from code",
-          closeoutCommand,
-        ]
-      : [
-          delta ? "Review the delta report for newly introduced findings" : "Review remaining findings",
-          "Update impacted wiki pages from code",
-          closeoutCommand,
-        ];
-
-  const findingsPath = `${report.scan.path}/.desloppify/reports/latest.findings.json`;
-  const deltaPath = `${report.scan.path}/.desloppify/reports/latest.delta.json`;
-  const workflowCommands: WikiWorkflowCommand[] = [
-    {
-      id: "read-findings",
-      label: "Read machine findings",
-      command: `cat ${findingsPath}`,
-      exec: {
-        command: "cat",
-        args: [findingsPath],
-      },
-    },
-    ...(delta ? [{
-      id: "read-delta",
-      label: "Read scan delta",
-      command: `cat ${deltaPath}`,
-      exec: {
-        command: "cat",
-        args: [deltaPath],
-      },
-    } satisfies WikiWorkflowCommand] : []),
-    {
-      id: "prepare-fixes",
-      label: "Prepare fix workflow",
-      command: `desloppify worktrees ${report.scan.path}`,
-      exec: {
-        command: "desloppify",
-        args: ["worktrees", report.scan.path],
-      },
-    },
-    {
-      id: "wiki-closeout",
-      label: "Run wiki closeout",
-      command: closeoutCommand,
-    },
-  ];
+  const artifacts = getScanWorkflowArtifacts(report.scan.path);
+  const nextSteps = buildWorkflowNextSteps({
+    rootPath: report.scan.path,
+    project: context.project,
+    hasDelta: Boolean(delta),
+    hasBlockingFindings: blockingFindings.length > 0,
+    hasNewBlockingFindings: newBlockingFindings.length > 0,
+  });
+  const workflowCommands = buildWorkflowCommands({
+    rootPath: report.scan.path,
+    project: context.project,
+    hasDelta: Boolean(delta),
+  });
 
   return {
     schema: "wiki-forge.review/v1",
@@ -243,14 +194,12 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
     nextSteps,
     handoff: {
       activeSlice: context.sliceId,
-      nextSessionPrompt: context.sliceId
-        ? newBlockingFindings.length > 0
-          ? `Continue ${context.sliceId}: resolve newly introduced blockers first, then update wiki pages and re-run wiki closeout with --base <rev>.`
-          : `Continue ${context.sliceId}: resolve remaining findings, review the delta report, update wiki pages, and re-run wiki closeout with --base <rev>.`
-        : newBlockingFindings.length > 0
-          ? "Continue: resolve newly introduced blockers first, then update wiki pages and re-run wiki closeout with --base <rev>."
-          : "Continue resolving findings, review the delta report, update wiki pages, and re-run wiki closeout with --base <rev>.",
-      resumeHint: delta ? `Review ${deltaPath} for added/resolved findings before closeout.` : undefined,
+      nextSessionPrompt: buildNextSessionPrompt({
+        rootPath: report.scan.path,
+        sliceId: context.sliceId,
+        hasNewBlockingFindings: newBlockingFindings.length > 0,
+      }),
+      resumeHint: delta ? `Review ${artifacts.deltaJson} for added/resolved findings before closeout.` : undefined,
       unresolvedFindingFingerprints: report.findings.map((finding) => finding.fingerprints.primary),
     },
   };

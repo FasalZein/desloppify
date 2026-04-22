@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "path";
+import { resolve } from "path";
 import type { ScanDeltaReport } from "../scan-delta";
+import { getScanWorkflowArtifacts, loadSavedJsonArtifact } from "../scan-workflow";
 import type { Category, ScanReport, Severity } from "../types";
 
 export default defineCommand({
@@ -12,13 +12,12 @@ export default defineCommand({
   },
   run({ args }) {
     const targetPath = resolve(args.path);
-    const findingsPath = join(targetPath, ".desloppify", "reports", "latest.findings.json");
-    const deltaPath = join(targetPath, ".desloppify", "reports", "latest.delta.json");
-    const report = loadReport(findingsPath);
-    const delta = loadDeltaReport(deltaPath);
+    const artifacts = getScanWorkflowArtifacts(targetPath);
+    const report = loadReport(artifacts.findingsJson);
+    const delta = loadDeltaReport(artifacts.deltaJson);
 
     if (!report) {
-      console.error(`No saved findings at ${findingsPath}`);
+      console.error(`No saved findings at ${artifacts.findingsJson}`);
       console.error(`Run: desloppify scan ${targetPath}`);
       process.exit(1);
     }
@@ -27,9 +26,9 @@ export default defineCommand({
 
     if (!args.categories) {
       console.log("# Desloppify worktree triage");
-      console.log(`# Saved findings: ${findingsPath}`);
+      console.log(`# Saved findings: ${artifacts.findingsJson}`);
       console.log(`# Pack: ${report.scan.pack.name}`);
-      if (delta) console.log(`# Delta report: ${deltaPath}`);
+      if (delta) console.log(`# Delta report: ${artifacts.deltaJson}`);
       console.log("");
       for (const item of triage) {
         console.log(`# ${item.category}`);
@@ -62,8 +61,8 @@ export default defineCommand({
 
     console.log("# Desloppify worktree setup");
     console.log("# Run these commands to create isolated worktrees for each fix category");
-    console.log(`# Saved findings: ${findingsPath}`);
-    if (delta) console.log(`# Delta report: ${deltaPath}`);
+    console.log(`# Saved findings: ${artifacts.findingsJson}`);
+    if (delta) console.log(`# Delta report: ${artifacts.deltaJson}`);
     console.log("");
 
     for (const cat of cats) {
@@ -96,25 +95,11 @@ interface TriageItem {
 }
 
 function loadReport(findingsPath: string): ScanReport | undefined {
-  if (!existsSync(findingsPath)) return undefined;
-
-  try {
-    return JSON.parse(readFileSync(findingsPath, "utf8")) as ScanReport;
-  } catch (error) {
-    if (error instanceof SyntaxError) return undefined;
-    throw error;
-  }
+  return loadSavedJsonArtifact<ScanReport>(findingsPath);
 }
 
 function loadDeltaReport(deltaPath: string): ScanDeltaReport | undefined {
-  if (!existsSync(deltaPath)) return undefined;
-
-  try {
-    return JSON.parse(readFileSync(deltaPath, "utf8")) as ScanDeltaReport;
-  } catch (error) {
-    if (error instanceof SyntaxError) return undefined;
-    throw error;
-  }
+  return loadSavedJsonArtifact<ScanDeltaReport>(deltaPath);
 }
 
 function buildWorktreeTriagePlan(report: ScanReport, delta?: ScanDeltaReport | null): TriageItem[] {

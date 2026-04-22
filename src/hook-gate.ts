@@ -1,31 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Finding } from "./types";
-import type { FindingDelta, ScanDeltaReport } from "./scan-delta";
+import {
+  getBlockingDeltaChanges,
+  getBlockingFindings,
+  loadSavedScanDeltaReport,
+} from "./scan-workflow";
 
-export function getBlockingFindings(findings: Finding[]): Finding[] {
-  return findings.filter((finding) => finding.severity === "CRITICAL" || finding.severity === "HIGH");
-}
-
-export function getBlockingDeltaChanges(changes: FindingDelta[]): FindingDelta[] {
-  return changes.filter((change) => {
-    if (change.status !== "added" && change.status !== "worsened") return false;
-    const severity = change.head?.severity;
-    return severity === "CRITICAL" || severity === "HIGH";
-  });
-}
-
-function loadSavedDeltaReport(rootPath: string): ScanDeltaReport | undefined {
-  const deltaPath = join(rootPath, ".desloppify", "reports", "latest.delta.json");
-  if (!existsSync(deltaPath)) return undefined;
-
-  try {
-    return JSON.parse(readFileSync(deltaPath, "utf8")) as ScanDeltaReport;
-  } catch (error) {
-    if (error instanceof SyntaxError) return undefined;
-    throw error;
-  }
-}
+export { getBlockingDeltaChanges, getBlockingFindings };
 
 function hookModeNoun(mode: string): string {
   if (mode === "commit") return "commit";
@@ -36,7 +16,7 @@ function hookModeNoun(mode: string): string {
 export function runHookGate(report: { findings?: Finding[] }, mode = "run", rootPath = process.cwd()): number {
   const findings = Array.isArray(report.findings) ? report.findings : [];
   const noun = hookModeNoun(mode);
-  const delta = loadSavedDeltaReport(rootPath);
+  const delta = loadSavedScanDeltaReport(rootPath);
 
   if (delta) {
     const blockingDelta = getBlockingDeltaChanges(delta.changes);
