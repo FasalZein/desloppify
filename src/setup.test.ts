@@ -45,6 +45,26 @@ describe("setup helpers", () => {
     expect(existsSync(join(subdir, ".githooks", "pre-commit"))).toBe(false);
   });
 
+  test("printed hook install script matches runtime behavior for extra managed-directory hooks", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-print-managed-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(() => installHooks(repoRoot)).not.toThrow();
+
+    const extraHook = join(repoRoot, ".githooks", "commit-msg");
+    writeFileSync(extraHook, "#!/bin/sh\necho commit-msg\n");
+
+    expect(() => installHooks(repoRoot)).not.toThrow();
+
+    const install = getHooksInstallCommand();
+    const result = spawnSync("sh", ["-c", install.display], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(0);
+    expect(readFileSync(extraHook, "utf8")).toContain("commit-msg");
+  });
+
   test("installs repo-local hooks and configures git", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-"));
     const init = spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" });
