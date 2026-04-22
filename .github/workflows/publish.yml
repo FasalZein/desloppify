@@ -46,6 +46,21 @@ jobs:
             exit 1
           fi
 
+      - name: Extract release notes from changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+
+          version = os.environ['GITHUB_REF_NAME'][1:]
+          text = pathlib.Path('CHANGELOG.md').read_text()
+          pattern = rf'^## \[{re.escape(version)}\].*?(?=^## \[|\Z)'
+          match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+          if not match:
+              raise SystemExit(f'Missing CHANGELOG entry for {version}')
+          pathlib.Path('/tmp/release-notes.md').write_text(match.group(0).strip() + '\n')
+          PY
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -64,4 +79,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: /tmp/release-notes.md
