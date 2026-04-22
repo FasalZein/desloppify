@@ -4,13 +4,33 @@ set -eu
 PACK=${DESLOPPIFY_PACK:-js-ts}
 SCOPE=${DESLOPPIFY_HOOK_SCOPE:-diff}
 
+run_desloppify() {
+  if [ -x "./node_modules/.bin/desloppify" ]; then
+    ./node_modules/.bin/desloppify "$@"
+    return
+  fi
+
+  if command -v desloppify >/dev/null 2>&1; then
+    desloppify "$@"
+    return
+  fi
+
+  if command -v bunx >/dev/null 2>&1; then
+    bunx --bun desloppify "$@"
+    return
+  fi
+
+  printf '%s\n' '[desloppify] could not find the desloppify CLI. Install it locally or make bunx available.' >&2
+  exit 1
+}
+
 if [ "$SCOPE" = "repo" ]; then
   printf '\n[desloppify] scanning whole repo with pack %s...\n' "$PACK"
-  OUTPUT=$(bun src/cli.ts scan . --json --pack "$PACK" || true)
+  OUTPUT=$(run_desloppify scan . --json --pack "$PACK" || true)
 else
   printf '\n[desloppify] scanning current branch changes with pack %s...\n' "$PACK"
-  OUTPUT=$(bun src/cli.ts scan . --changed --json --pack "$PACK" || true)
+  OUTPUT=$(run_desloppify scan . --changed --json --pack "$PACK" || true)
 fi
 
 printf '%s\n' "$OUTPUT"
-printf '%s' "$OUTPUT" | bun src/hook-gate.ts push
+printf '%s' "$OUTPUT" | run_desloppify hook-gate push

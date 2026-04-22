@@ -17,6 +17,7 @@ const main = defineCommand({
     "check-tools": () => import("./commands/check-tools").then((m) => m.default),
     "install-skill": () => import("./commands/install-skill").then((m) => m.default),
     "install-hooks": () => import("./commands/install-hooks").then((m) => m.default),
+    "hook-gate": () => import("./commands/hook-gate").then((m) => m.default),
     setup: () => import("./commands/setup").then((m) => m.default),
     worktrees: () => import("./commands/worktrees").then((m) => m.default),
     score: () => import("./commands/score").then((m) => m.default),

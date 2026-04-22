@@ -33,28 +33,34 @@ function hookModeNoun(mode: string): string {
   return mode;
 }
 
-async function main() {
-  const input = await new Response(Bun.stdin.stream()).text();
-  const report = JSON.parse(input) as { findings?: Finding[] };
+export function runHookGate(report: { findings?: Finding[] }, mode = "run", rootPath = process.cwd()): number {
   const findings = Array.isArray(report.findings) ? report.findings : [];
-  const mode = process.argv[2] ?? "run";
   const noun = hookModeNoun(mode);
-  const delta = loadSavedDeltaReport(process.cwd());
+  const delta = loadSavedDeltaReport(rootPath);
 
   if (delta) {
     const blockingDelta = getBlockingDeltaChanges(delta.changes);
     if (blockingDelta.length > 0) {
       console.error(`\n[desloppify] blocking ${noun}: ${blockingDelta.length} new/worsened high/critical issue(s)`);
-      process.exit(1);
+      return 1;
     }
-    return;
+    return 0;
   }
 
   const blocking = getBlockingFindings(findings);
   if (blocking.length > 0) {
     console.error(`\n[desloppify] blocking ${noun}: ${blocking.length} high/critical issue(s)`);
-    process.exit(1);
+    return 1;
   }
+
+  return 0;
+}
+
+export async function main(mode = process.argv[2] ?? "run") {
+  const input = await new Response(Bun.stdin.stream()).text();
+  const report = JSON.parse(input) as { findings?: Finding[] };
+  const exitCode = runHookGate(report, mode);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 if (import.meta.main) {

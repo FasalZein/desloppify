@@ -198,7 +198,7 @@ desloppify worktrees [path]                     # print worktree setup commands
 
 Use `--project`, `--slice`, `--prd`, and `--feature` with `--wiki` or `--handoff` when you want wiki-native output with concrete project context.
 
-## Git hooks for changed files only
+## Git hooks for current changes by default
 
 ```bash
 desloppify install-hooks
@@ -206,7 +206,7 @@ desloppify install-hooks
 desloppify install-hooks --print
 ```
 
-This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hooksPath .githooks` for the current repo.
+This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hooksPath .githooks` for the current repo. The installed hooks resolve `desloppify` from `./node_modules/.bin`, your PATH, or `bunx`.
 
 - `pre-commit` → scans `--staged`
 - `pre-push` → scans `--changed`

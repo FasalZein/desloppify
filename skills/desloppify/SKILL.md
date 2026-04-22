@@ -56,7 +56,7 @@ desloppify install-hooks
 desloppify setup
 ```
 
-`install-hooks` scaffolds `.githooks/` into the current git repo and enables it. Hook runs default to current changes; set `DESLOPPIFY_HOOK_SCOPE=repo` when the user wants hook scans to cover the whole repo.
+`install-hooks` scaffolds `.githooks/` into the current git repo and enables it. The installed hooks resolve the CLI from the repo, PATH, or `bunx`. Hook runs default to current changes; set `DESLOPPIFY_HOOK_SCOPE=repo` when the user wants hook scans to cover the whole repo.
 
 If you need the exact commands or pack/tool setup details, read:
 - `reference/commands.md`
