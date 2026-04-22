@@ -78,6 +78,16 @@ describe("setup helpers", () => {
     expect(readFileSync(hookPath, "utf8")).toContain("custom hook");
   });
 
+  test("accepts an absolute hooksPath that still points at .githooks", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-absolute-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("git", ["config", "core.hooksPath", join(repoRoot, ".githooks")], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const result = installHooks(repoRoot);
+    expect(result.hooksDir).toBe(join(result.repoRoot, ".githooks"));
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
+  });
+
   test("refuses to replace another hooksPath manager", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-path-"));
     expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);

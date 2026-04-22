@@ -58,6 +58,33 @@ describe("install-hooks command", () => {
     expect(repoHook.stdout).toContain("scanning whole repo");
   });
 
+  test("auto-picks the suggested repo pack for hook runs", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-install-hooks-python-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    writeFileSync(join(repoRoot, "requirements.txt"), "ruff\n");
+    writeFileSync(join(repoRoot, "app.py"), "def run(items=[]):\n    return items\n");
+    expect(spawnSync("git", ["add", "requirements.txt", "app.py"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const localBinDir = join(repoRoot, "node_modules", ".bin");
+    mkdirSync(localBinDir, { recursive: true });
+    const localCli = join(localBinDir, "desloppify");
+    writeFileSync(localCli, `#!/bin/sh\nexec bun \"${join(process.cwd(), "src", "cli.ts")}\" \"$@\"\n`);
+    chmodSync(localCli, 0o755);
+
+    expect(spawnSync("bun", [join(process.cwd(), "src", "cli.ts"), "install-hooks"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    }).status).toBe(0);
+
+    const hookRun = spawnSync("sh", [join(repoRoot, ".githooks", "pre-commit")], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+
+    expect(hookRun.stdout).toContain("scanning staged changes with pack python");
+    expect(hookRun.stdout).not.toContain("pack js-ts");
+  });
+
   test("prefers bunx fallback over a stale PATH binary", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-install-hooks-bunx-"));
     expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);

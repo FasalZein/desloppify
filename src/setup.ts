@@ -1,5 +1,5 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const SKILL_INSTALL_COMMAND = ["npx", "skills", "add", "FasalZein/desloppify"] as const;
@@ -39,8 +39,26 @@ export function getSkillInstallCommand(): { command: string; args: string[]; dis
   };
 }
 
-function isManagedHooksPath(hooksPath: string | null | undefined): boolean {
-  return hooksPath === ".githooks" || hooksPath === "./.githooks";
+function normalizeHooksPath(repoRoot: string, hooksPath: string): string {
+  if (hooksPath === ".githooks" || hooksPath === "./.githooks") {
+    return join(realpathSync(repoRoot), ".githooks");
+  }
+
+  if (!hooksPath.startsWith("/")) {
+    return resolvePath(realpathSync(repoRoot), hooksPath);
+  }
+
+  const parentDir = dirname(hooksPath);
+  if (existsSync(parentDir)) {
+    return join(realpathSync(parentDir), basename(hooksPath));
+  }
+
+  return hooksPath;
+}
+
+function isManagedHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
+  if (!hooksPath) return false;
+  return normalizeHooksPath(repoRoot, hooksPath) === join(realpathSync(repoRoot), ".githooks");
 }
 
 function readCurrentHooksPath(repoRoot: string): string | null {
@@ -55,7 +73,7 @@ function readCurrentHooksPath(repoRoot: string): string | null {
 
 function assertHooksPathCanBeConfigured(repoRoot: string) {
   const currentHooksPath = readCurrentHooksPath(repoRoot);
-  if (!currentHooksPath || isManagedHooksPath(currentHooksPath)) return;
+  if (!currentHooksPath || isManagedHooksPath(repoRoot, currentHooksPath)) return;
 
   throw new Error(`Refusing to replace existing core.hooksPath=${currentHooksPath}`);
 }
@@ -81,7 +99,8 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
   const display = [
     'repo_root=$(git rev-parse --show-toplevel)',
     'current_hooks_path=$(git -C "$repo_root" config --get core.hooksPath || true)',
-    'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ]; then',
+    'managed_hooks_path=$(cd "$repo_root" && pwd)/.githooks',
+    'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ] && [ "$current_hooks_path" != "$managed_hooks_path" ]; then',
     '  printf "%s\\n" "Refusing to replace existing core.hooksPath=$current_hooks_path" >&2',
     '  exit 1',
     'fi',

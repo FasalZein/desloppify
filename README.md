@@ -212,6 +212,7 @@ This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hoo
 - `pre-push` → scans `--changed`
 
 By default the hooks scan only current changes and block only on `HIGH`/`CRITICAL` findings.
+They auto-pick the repo's suggested pack when that choice is unambiguous, otherwise they fall back to `js-ts`.
 Set `DESLOPPIFY_PACK=<pack>` if you need a different pack in hook runs.
 Set `DESLOPPIFY_HOOK_SCOPE=repo` if hook runs should scan the whole repo instead of the current diff.
 

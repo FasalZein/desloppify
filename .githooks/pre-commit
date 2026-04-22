@@ -2,7 +2,6 @@
 # managed by desloppify install-hooks
 set -eu
 
-PACK=${DESLOPPIFY_PACK:-js-ts}
 SCOPE=${DESLOPPIFY_HOOK_SCOPE:-diff}
 
 run_desloppify() {
@@ -24,6 +23,17 @@ run_desloppify() {
   printf '%s\n' '[desloppify] could not find the desloppify CLI. Install it locally or make bunx available.' >&2
   exit 1
 }
+
+resolve_pack() {
+  if [ -n "${DESLOPPIFY_PACK:-}" ]; then
+    printf '%s' "$DESLOPPIFY_PACK"
+    return
+  fi
+
+  run_desloppify suggest-pack . 2>/dev/null || printf '%s' 'js-ts'
+}
+
+PACK=$(resolve_pack)
 
 if [ "$SCOPE" = "repo" ]; then
   printf '\n[desloppify] scanning whole repo with pack %s...\n' "$PACK"
