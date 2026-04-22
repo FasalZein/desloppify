@@ -1,4 +1,5 @@
 #!/bin/sh
+# managed by desloppify install-hooks
 set -eu
 
 PACK=${DESLOPPIFY_PACK:-js-ts}

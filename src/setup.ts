@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -7,6 +7,8 @@ const SKILL_INSTALL_COMMAND = ["npx", "skills", "add", "FasalZein/desloppify"] a
 function formatCommand(parts: readonly string[]) {
   return parts.join(" ");
 }
+
+const MANAGED_HOOK_MARKER = "managed by desloppify install-hooks";
 
 function readHookTemplates() {
   return {
@@ -37,18 +39,43 @@ export function getSkillInstallCommand(): { command: string; args: string[]; dis
   };
 }
 
+function assertHookCanBeWritten(hookPath: string, nextContents: string) {
+  if (!existsSync(hookPath)) return;
+
+  const currentContents = readFileSync(hookPath, "utf8");
+  if (currentContents === nextContents) return;
+  if (currentContents.includes(MANAGED_HOOK_MARKER)) return;
+
+  throw new Error(`Refusing to overwrite existing unmanaged hook: ${hookPath}`);
+}
+
+function writeManagedHook(hookPath: string, contents: string) {
+  assertHookCanBeWritten(hookPath, contents);
+  writeFileSync(hookPath, contents);
+  chmodSync(hookPath, 0o755);
+}
+
 export function getHooksInstallCommand(): { command: string; args: string[]; display: string } {
   const { preCommit, prePush } = readHookTemplates();
   const display = [
-    "mkdir -p .githooks",
-    "cat > .githooks/pre-commit <<'EOF'",
+    'repo_root=$(git rev-parse --show-toplevel)',
+    'mkdir -p "$repo_root/.githooks"',
+    'write_hook() {',
+    '  hook_path="$1"',
+    `  if [ -f "$hook_path" ] && ! grep -q '${MANAGED_HOOK_MARKER}' "$hook_path"; then`,
+    '    printf "%s\\n" "Refusing to overwrite existing unmanaged hook: $hook_path" >&2',
+    '    exit 1',
+    '  fi',
+    '  cat > "$hook_path"',
+    '  chmod +x "$hook_path"',
+    '}',
+    'write_hook "$repo_root/.githooks/pre-commit" <<\'EOF\'',
     preCommit.trimEnd(),
-    "EOF",
-    "cat > .githooks/pre-push <<'EOF'",
+    'EOF',
+    'write_hook "$repo_root/.githooks/pre-push" <<\'EOF\'',
     prePush.trimEnd(),
-    "EOF",
-    "chmod +x .githooks/pre-commit .githooks/pre-push",
-    "git config core.hooksPath .githooks",
+    'EOF',
+    'git -C "$repo_root" config core.hooksPath .githooks',
   ].join("\n");
 
   return {
@@ -64,10 +91,8 @@ export function installHooks(cwd = process.cwd()): { repoRoot: string; hooksDir:
   const { preCommit, prePush } = readHookTemplates();
 
   mkdirSync(hooksDir, { recursive: true });
-  writeFileSync(join(hooksDir, "pre-commit"), preCommit);
-  writeFileSync(join(hooksDir, "pre-push"), prePush);
-  chmodSync(join(hooksDir, "pre-commit"), 0o755);
-  chmodSync(join(hooksDir, "pre-push"), 0o755);
+  writeManagedHook(join(hooksDir, "pre-commit"), preCommit);
+  writeManagedHook(join(hooksDir, "pre-push"), prePush);
 
   const result = spawnSync("git", ["config", "core.hooksPath", ".githooks"], {
     cwd: repoRoot,
