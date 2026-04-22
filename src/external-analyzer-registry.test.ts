@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { listBuiltinExternalAnalyzerIds } from "./external-analyzer-registry";
-import { getBuiltinPackDefinition } from "./pack-registry";
+import { getExternalTasks, listExternalAnalyzerIds, type ExternalAnalyzerDefinition } from "./external-analyzer-registry";
 import type { ToolStatus } from "./types";
 
 const allTools: ToolStatus = {
@@ -19,30 +18,44 @@ const allTools: ToolStatus = {
 };
 
 describe("external analyzer registry", () => {
-  test("keeps madge opt-in for uncategorized js-ts scans", () => {
-    expect(listBuiltinExternalAnalyzerIds("js-ts", allTools)).toEqual(["knip", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
-    expect(listBuiltinExternalAnalyzerIds("js-ts", allTools, { withMadge: true })).toEqual(["knip", "madge", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
+  test("lists enabled analyzer ids from generic definitions without pack routing", () => {
+    const analyzers: ExternalAnalyzerDefinition<"alpha" | "beta">[] = [
+      {
+        id: "alpha",
+        enabled: (tools, options) => tools.knip && !options.category,
+        createTask: (targetPath) => ({ name: `alpha:${targetPath}`, promise: Promise.resolve({ issues: [] }) }),
+      },
+      {
+        id: "beta",
+        enabled: (tools, options) => tools.madge && options.category === "circular-deps",
+        createTask: (targetPath) => ({ name: `beta:${targetPath}`, promise: Promise.resolve({ issues: [] }) }),
+      },
+    ];
+
+    expect(listExternalAnalyzerIds(analyzers, allTools)).toEqual(["alpha"]);
+    expect(listExternalAnalyzerIds(analyzers, allTools, { category: "circular-deps" })).toEqual(["beta"]);
+    expect(listExternalAnalyzerIds(analyzers, allTools, { partial: true })).toEqual([]);
   });
 
-  test("applies pack/category/partial filtering before task creation", () => {
-    expect(listBuiltinExternalAnalyzerIds("js-ts", allTools, { category: "dead-code" })).toEqual(["knip", "ast-grep"]);
-    expect(listBuiltinExternalAnalyzerIds("js-ts", allTools, { category: "circular-deps" })).toEqual(["madge"]);
-    expect(listBuiltinExternalAnalyzerIds("python", allTools)).toEqual(["ast-grep", "ruff"]);
-    expect(listBuiltinExternalAnalyzerIds("rust", allTools)).toEqual(["ast-grep", "cargo-clippy"]);
-    expect(listBuiltinExternalAnalyzerIds("go", allTools)).toEqual(["staticcheck", "golangci-lint"]);
-    expect(listBuiltinExternalAnalyzerIds("ruby", allTools)).toEqual(["rubocop"]);
-    expect(listBuiltinExternalAnalyzerIds("js-ts", allTools, { partial: true })).toEqual([]);
-  });
+  test("creates tasks from generic definitions after filtering", () => {
+    const analyzers: ExternalAnalyzerDefinition<"alpha" | "beta">[] = [
+      {
+        id: "alpha",
+        enabled: () => true,
+        createTask: (targetPath) => ({ name: `alpha:${targetPath}`, promise: Promise.resolve({ issues: [] }) }),
+      },
+      {
+        id: "beta",
+        enabled: (_, options) => Boolean(options.withMadge),
+        createTask: (targetPath) => ({ name: `beta:${targetPath}`, promise: Promise.resolve({ issues: [] }) }),
+      },
+    ];
 
-  test("canonical pack definitions delegate external analyzer selection", () => {
-    const jsDefinition = getBuiltinPackDefinition("js-ts");
-    const pythonDefinition = getBuiltinPackDefinition("python");
-
-    expect(jsDefinition.listExternalAnalyzerIds(allTools, { withMadge: true })).toEqual(
-      listBuiltinExternalAnalyzerIds("js-ts", allTools, { withMadge: true }),
-    );
-    expect(pythonDefinition.listExternalAnalyzerIds(allTools)).toEqual(
-      listBuiltinExternalAnalyzerIds("python", allTools),
-    );
+    expect(getExternalTasks(analyzers, "/repo", allTools).map((task) => task.name)).toEqual(["alpha:/repo"]);
+    expect(getExternalTasks(analyzers, "/repo", allTools, { withMadge: true }).map((task) => task.name)).toEqual([
+      "alpha:/repo",
+      "beta:/repo",
+    ]);
+    expect(getExternalTasks(analyzers, "/repo", allTools, { partial: true })).toEqual([]);
   });
 });

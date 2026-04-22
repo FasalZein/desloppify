@@ -1,10 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { getBuiltinPackDefinition, listBuiltinPackDefinitions } from "./pack-registry";
-import type { FileEntry, } from "./analyzers/file-walker";
+import type { FileEntry } from "./analyzers/file-walker";
+import type { ToolStatus } from "./types";
 
 function entry(path: string, content: string): FileEntry {
   return { path, content, lines: content.split("\n") };
 }
+
+const allTools: ToolStatus = {
+  knip: true,
+  madge: true,
+  "ast-grep": true,
+  tsc: true,
+  eslint: true,
+  biome: true,
+  oxlint: true,
+  ruff: true,
+  "cargo-clippy": true,
+  staticcheck: true,
+  "golangci-lint": true,
+  rubocop: true,
+};
 
 describe("pack registry", () => {
   test("exposes canonical built-in pack definitions", () => {
@@ -48,7 +64,26 @@ describe("pack registry", () => {
     expect(pythonIssues.map((issue) => issue.id)).toEqual(expect.arrayContaining(["BANNER_COMMENT", "MUTABLE_DEFAULT", "BUILTIN_SHADOW"]));
     expect(jsIssues.map((issue) => issue.id)).toContain("USEEFFECT_ASYNC");
     expect(rustIssues).toEqual([]);
-    expect(jsDefinition.listExternalAnalyzerIds({ knip: true, madge: true, "ast-grep": true, tsc: true, eslint: true, biome: true, oxlint: true, ruff: true, "cargo-clippy": true, staticcheck: true, "golangci-lint": true, rubocop: true })).toEqual(["knip", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
-    expect(pythonDefinition.listExternalAnalyzerIds({ knip: true, madge: true, "ast-grep": true, tsc: true, eslint: true, biome: true, oxlint: true, ruff: true, "cargo-clippy": true, staticcheck: true, "golangci-lint": true, rubocop: true })).toEqual(["ast-grep", "ruff"]);
+    expect(jsDefinition.listExternalAnalyzerIds(allTools)).toEqual(["knip", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
+    expect(pythonDefinition.listExternalAnalyzerIds(allTools)).toEqual(["ast-grep", "ruff"]);
+  });
+
+  test("keeps pack-specific external analyzer policy on each definition", () => {
+    const jsDefinition = getBuiltinPackDefinition("js-ts");
+    const pythonDefinition = getBuiltinPackDefinition("python");
+    const rustDefinition = getBuiltinPackDefinition("rust");
+    const goDefinition = getBuiltinPackDefinition("go");
+    const rubyDefinition = getBuiltinPackDefinition("ruby");
+
+    expect(jsDefinition.listExternalAnalyzerIds(allTools)).toEqual(["knip", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
+    expect(jsDefinition.listExternalAnalyzerIds(allTools, { withMadge: true })).toEqual(["knip", "madge", "ast-grep", "tsc", "eslint", "biome", "oxlint"]);
+    expect(jsDefinition.listExternalAnalyzerIds(allTools, { category: "dead-code" })).toEqual(["knip", "ast-grep"]);
+    expect(jsDefinition.listExternalAnalyzerIds(allTools, { category: "circular-deps" })).toEqual(["madge"]);
+    expect(jsDefinition.listExternalAnalyzerIds(allTools, { partial: true })).toEqual([]);
+
+    expect(pythonDefinition.listExternalAnalyzerIds(allTools)).toEqual(["ast-grep", "ruff"]);
+    expect(rustDefinition.listExternalAnalyzerIds(allTools)).toEqual(["ast-grep", "cargo-clippy"]);
+    expect(goDefinition.listExternalAnalyzerIds(allTools)).toEqual(["staticcheck", "golangci-lint"]);
+    expect(rubyDefinition.listExternalAnalyzerIds(allTools)).toEqual(["rubocop"]);
   });
 });
