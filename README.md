@@ -19,13 +19,18 @@ bunx desloppify install-hooks
 bunx desloppify setup
 
 # 4) Run the scanner
+bunx desloppify check-tools .
 bunx desloppify scan . --pack js-ts
 bunx desloppify report .
 bunx desloppify score . --pack js-ts
-# or, for Python / Rust repos:
+# or pick another first-party pack:
 bunx desloppify scan . --pack python
 bunx desloppify scan . --pack rust
+bunx desloppify scan . --pack go
+bunx desloppify scan . --pack ruby
 ```
+
+For large JS/TS repos, the default scan keeps `madge` off the main path. Add `--with-madge` or `--category circular-deps` only when you explicitly want circular dependency analysis.
 
 ## Install as a skill
 
@@ -143,6 +148,8 @@ The detailed instructions live in `skills/desloppify/reference/overhaul-review.m
 
 ## Commands
 
+Keep the README workflow-oriented. For the fuller agent-facing command matrix, see `skills/desloppify/reference/commands.md`.
+
 ```bash
 desloppify setup                                # guided first-run setup
 desloppify install-skill --print                # print the canonical skill install command
@@ -150,10 +157,11 @@ desloppify install-skill                        # run npx skills add FasalZein/d
 desloppify install-hooks --print                # print the hook scaffold + git config script
 desloppify install-hooks                        # scaffold repo-local pre-commit / pre-push hooks and enable them
 desloppify scan [path] --pack js-ts             # detect issues and save report artifacts locally
-desloppify scan [path] --pack python            # first non-JS pack for Python repos
-desloppify scan [path] --pack rust              # Rust pack (ast-grep proof pack)
+desloppify scan [path] --pack python            # Python pack
+desloppify scan [path] --pack rust              # Rust pack
+desloppify scan [path] --pack go                # Go pack
+desloppify scan [path] --pack ruby              # Ruby pack
 desloppify scan [path] --json --pack js-ts      # machine-readable normalized findings output
-
 desloppify scan [path] --json --summary --pack js-ts
                                               # compact machine-readable summary without full findings payload
 desloppify scan [path] --markdown --pack js-ts  # readable markdown report
@@ -164,7 +172,7 @@ desloppify scan [path] --architecture modular-monolith --pack js-ts
 desloppify scan [path] --staged --pack js-ts    # staged git changes only
 desloppify scan [path] --changed --pack js-ts   # current branch diff only
 desloppify scan [path] --with-madge --pack js-ts
-                                              # include whole-repo circular dependency analysis
+                                              # opt into whole-repo circular dependency analysis
 desloppify report [path]                        # normalized metrics + path hotspots from latest saved scan
 desloppify report [path] --json                 # emit the saved findings report JSON directly
 desloppify report [path] --json --summary       # compact summary JSON from the saved report
@@ -174,6 +182,8 @@ desloppify benchmark report --manifest <file>   # render markdown cohort report 
 desloppify score [path] --pack js-ts            # weighted quality grade (A+ to F)
 desloppify score [path] --pack python           # weighted quality grade for Python scans
 desloppify score [path] --pack rust             # weighted quality grade for Rust scans
+desloppify score [path] --pack go               # weighted quality grade for Go scans
+desloppify score [path] --pack ruby             # weighted quality grade for Ruby scans
 desloppify score [path] --with-madge --pack js-ts
                                               # include circular dependency analysis in score runs
 desloppify delta [base] [head] --json           # compare saved findings reports across two repos or report paths
@@ -188,6 +198,8 @@ desloppify rules                                # list all detection rules after
 desloppify score [path]                         # score also respects desloppify.config.json
 desloppify rules --pack python                  # python-specific rule bundle
 desloppify rules --pack rust                    # rust-specific rule bundle
+desloppify rules --pack go                      # go-specific rule bundle
+desloppify rules --pack ruby                    # ruby-specific rule bundle
 desloppify rules --architecture modular-monolith # active architecture bundle only
 desloppify fix [path] --safe                    # auto-fix safe mechanical issues
 desloppify fix [path] --confident               # add AST-validated fixes
@@ -304,13 +316,15 @@ Optional (auto-detected, improves coverage):
 
 ## Packs
 
-Desloppify is moving toward a language-agnostic core with explicit first-party packs.
+Desloppify ships explicit first-party packs.
 
 | Pack | Status | Notes |
 |------|--------|-------|
 | `js-ts` | Available | JavaScript / TypeScript / React-oriented analyzer bundle |
-| `python` | Available | First non-JS pack with python-scoped grep and ast-grep rules |
-| `rust` | Available | Rust proof pack with rust-scoped ast-grep rules |
+| `python` | Available | Python-scoped grep, ast-grep, and Ruff integration |
+| `rust` | Available | Rust-scoped rules with ast-grep and cargo clippy integration |
+| `go` | Available | Go-focused rules with staticcheck and golangci-lint integration |
+| `ruby` | Available | Ruby-focused rules with RuboCop integration |
 
 Run `desloppify check-tools .` before your first scan to see the available packs for the repo and the suggested pack when the choice is unambiguous.
 

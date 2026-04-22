@@ -8,7 +8,7 @@ describe("benchmark types", () => {
       benchmarkSetId: "sample",
       benchmarkSetName: "Sample",
       generatedAt: "2026-04-19T00:00:00.000Z",
-      analyzerVersion: "1.0.1",
+      analyzerVersion: "1.0.2",
       repos: [
         {
           id: "ai",

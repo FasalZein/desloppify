@@ -54,7 +54,7 @@ const repos: BenchmarkRepoSnapshot[] = [
 
 describe("benchmark snapshot", () => {
   test("builds cohort medians, blended scores, and pair ratios", () => {
-    const snapshot = createBenchmarkSnapshot(set, repos, "1.0.1", "2026-04-19T00:00:00.000Z");
+    const snapshot = createBenchmarkSnapshot(set, repos, "1.0.2", "2026-04-19T00:00:00.000Z");
 
     expect(snapshot.cohorts["mature-oss"].medians.scorePerFile).toBe(47.5);
     expect(snapshot.repos.find((repo) => repo.id === "oss")?.blendedScore).toBe(1);

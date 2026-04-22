@@ -71,6 +71,8 @@ Common default:
 desloppify scan [path] --pack js-ts
 ```
 
+That default JS/TS path intentionally keeps `madge` off the main run so missing or slow circular-deps analysis does not block ordinary scans. Only add `--with-madge` or `--category circular-deps` when the user explicitly wants circular dependency analysis.
+
 Then read artifacts in this order:
 1. `.desloppify/reports/latest.findings.json`
 2. `desloppify report [path]`
@@ -91,6 +93,7 @@ Important:
 - do not mistake external analyzer warnings for a clean repo
 - partial scans skip whole-project analyzers
 - full JS/TS scans skip `madge` by default unless you opt in
+- `check-tools` can suggest among the shipped `js-ts`, `python`, `rust`, `go`, and `ruby` packs before you scan
 
 If you need pack/tool behavior details, read `reference/packs-and-tools.md`.
 

@@ -7,7 +7,7 @@ import { createSpinner, humanCategory, scanIntro, scanOutro, showScore, showTool
 import { resolvePackSelection } from "../packs";
 import { calculateScore, CATEGORY_WEIGHTS, getGrade, MAX_CATEGORY_PENALTY, SEVERITY_POINTS } from "../scoring";
 
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 
 /**
  * Scoring system for desloppify.

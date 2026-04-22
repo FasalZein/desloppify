@@ -33,8 +33,14 @@ desloppify report [path]
 desloppify report [path] --json
 desloppify report [path] --json --summary
 desloppify score [path] --pack js-ts
+desloppify score [path] --pack python
+desloppify score [path] --pack rust
+desloppify score [path] --pack go
+desloppify score [path] --pack ruby
 desloppify score [path] --with-madge --pack js-ts
 ```
+
+Default JS/TS scan and score flows keep `madge` off the fast path. Use `--with-madge` or `--category circular-deps` only when you explicitly want circular dependency analysis.
 
 ## Benchmarks + deltas
 
@@ -57,6 +63,8 @@ desloppify delta [base] [head] --severity high,critical --fail-on added,worsened
 desloppify rules
 desloppify rules --pack python
 desloppify rules --pack rust
+desloppify rules --pack go
+desloppify rules --pack ruby
 desloppify rules --architecture modular-monolith
 desloppify fix [path] --safe
 desloppify fix [path] --confident

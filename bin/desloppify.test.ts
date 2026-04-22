@@ -9,6 +9,6 @@ describe("bin/desloppify.js", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString().trim()).toBe("1.0.1");
+    expect(result.stdout.toString().trim()).toBe("1.0.2");
   });
 });

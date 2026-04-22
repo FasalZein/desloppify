@@ -23,7 +23,7 @@ Recommendations-only today:
 
 ## Behavior notes
 
-- Full JS/TS scans skip `madge` by default.
+- Full JS/TS scans skip `madge` by default so the main scan path stays fast and does not block on circular-deps analysis.
 - Use `--with-madge` or `--category circular-deps` when you want circular dependency analysis.
 - On monorepos with simple `package.json` workspaces like `apps/*` and `packages/*`, madge runs per workspace package.
 - Partial scans (`--staged`, `--changed`) skip whole-project analyzers like `knip`, `madge`, `ast-grep`, and `tsc`.
