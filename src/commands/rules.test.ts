@@ -24,13 +24,19 @@ describe("rules command", () => {
     const rules = JSON.parse(result.stdout.toString()) as Array<{ id: string }>;
 
     expect(result.exitCode).toBe(0);
-    expect(rules.map((rule) => rule.id)).toEqual(expect.arrayContaining([
+    const ids = rules.map((rule) => rule.id);
+
+    expect(ids).toEqual(expect.arrayContaining([
+      "BANNER_COMMENT",
+      "BOOLEAN_FLAG_PARAMS",
+      "EMPTY_ARRAY_FALLBACK",
       "DEAD_FEATURE_FLAG",
       "HANDWAVY_COMMENT",
       "NOT_IMPLEMENTED_STUB",
       "THROW_NON_ERROR",
       "CATCH_WRAP_NO_CAUSE",
     ]));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   test("filters by architecture profile", () => {

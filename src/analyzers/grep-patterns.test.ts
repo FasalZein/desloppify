@@ -87,6 +87,28 @@ describe("runGrepPatternsFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toContain("FAKE_LOADING_DELAY");
   });
 
+  test("detects representative rules from each smell family", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/slop.ts", "// placeholder\nconst ready = value === true;"),
+      entry("/repo/src/legacy.ts", "// FIXME: remove after migration"),
+      entry("/repo/src/defensive.ts", "const items = data?.items ?? [];"),
+      entry("/repo/src/complexity.ts", "function run(first: boolean, second: boolean, third: boolean) {}"),
+      entry("/repo/src/security.ts", 'const apiKey = "supersecret";'),
+      entry("/repo/src/inconsistency.ts", 'const fs = require("node:fs");'),
+    ]);
+
+    expect(issues.map((issue) => issue.id)).toEqual(expect.arrayContaining([
+      "DEMO_PLACEHOLDER",
+      "EXPLICIT_TRUE_COMPARE",
+      "TODO_REMOVE",
+      "FIXME_HACK_XXX",
+      "EMPTY_ARRAY_FALLBACK",
+      "BOOLEAN_FLAG_PARAMS",
+      "HARDCODED_SECRET",
+      "MIXED_IMPORT_STYLE",
+    ]));
+  });
+
   test("detects model-style fallback anti-patterns", () => {
     const issues = runGrepPatternsFromEntries([
       entry("/repo/src/items.ts", "const items = data?.items ?? [];"),

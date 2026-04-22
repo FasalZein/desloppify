@@ -7,6 +7,8 @@ describe("built-in rule catalog", () => {
 
     expect(ids).toEqual(expect.arrayContaining([
       "BANNER_COMMENT",
+      "BOOLEAN_FLAG_PARAMS",
+      "EMPTY_ARRAY_FALLBACK",
       "DEBUG_BREAKPOINT",
       "HANDWAVY_COMMENT",
       "THROW_NON_ERROR",
