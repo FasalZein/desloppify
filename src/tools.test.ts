@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { listBuiltinPackDefinitions } from "./pack-registry";
+import { listPackMetas } from "./packs";
 import { detectAvailablePacks, detectProject, detectSuggestedPack, printToolStatus } from "./tools";
 
 describe("tools", () => {
@@ -53,15 +53,15 @@ describe("tools", () => {
     expect(detectSuggestedPack(root)).toBeNull();
   });
 
-  test("detectAvailablePacks follows canonical pack definition signals", () => {
+  test("detectAvailablePacks follows canonical pack facade signals", () => {
     const root = mkdtempSync(join(tmpdir(), "desloppify-pack-signals-"));
     writeFileSync(join(root, "package.json"), "{}");
     writeFileSync(join(root, "Gemfile"), "source 'https://rubygems.org'\n");
 
     const project = detectProject(root);
-    const expected = listBuiltinPackDefinitions()
-      .filter((definition) => definition.meta.projectSignals.some((signal) => project[signal]))
-      .map((definition) => definition.meta.name);
+    const expected = listPackMetas()
+      .filter((meta) => meta.projectSignals.some((signal) => project[signal]))
+      .map((meta) => meta.name);
 
     expect(detectAvailablePacks(root)).toEqual(expected);
   });

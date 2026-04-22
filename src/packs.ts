@@ -1,6 +1,12 @@
 import type { FileEntry } from "./analyzers/file-walker";
 import { PACK_NAMES } from "./domain/pack-catalog";
-import { getBuiltinPackDefinition, type PackExternalTask, type PackMeta, type PackRunOptions } from "./pack-registry";
+import {
+  getBuiltinPackDefinition,
+  listBuiltinPackDefinitions,
+  type PackExternalTask,
+  type PackMeta,
+  type PackRunOptions,
+} from "./pack-registry";
 import type { Issue, PackName, PackSelection, ToolStatus } from "./types";
 
 export { isRuleInPack } from "./pack-filters";
@@ -13,6 +19,10 @@ export function resolvePackSelection(value?: string): PackSelection {
   if (!value) return { name: "js-ts", explicit: false };
   if (!isPackName(value)) throw new Error(`Unknown pack: ${value}`);
   return { name: value, explicit: true };
+}
+
+export function listPackMetas(): PackMeta[] {
+  return listBuiltinPackDefinitions().map((definition) => definition.meta);
 }
 
 export function getPackMeta(pack: PackName): PackMeta {

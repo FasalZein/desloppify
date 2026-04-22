@@ -1,5 +1,5 @@
 import type { PackName } from "./domain/pack-catalog";
-import { listBuiltinPackDefinitions } from "./pack-registry";
+import { listPackMetas } from "./packs";
 import type { ToolStatus } from "./types";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -85,9 +85,9 @@ interface ProjectInfo {
 export function detectAvailablePacks(targetPath: string): PackName[] {
   const project = detectProject(targetPath);
 
-  return listBuiltinPackDefinitions()
-    .filter((definition) => definition.meta.projectSignals.some((signal) => project[signal]))
-    .map((definition) => definition.meta.name);
+  return listPackMetas()
+    .filter((meta) => meta.projectSignals.some((signal) => project[signal]))
+    .map((meta) => meta.name);
 }
 
 export function detectSuggestedPack(targetPath: string): PackName | null {

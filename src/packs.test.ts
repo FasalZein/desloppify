@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FileEntry } from "./analyzers/file-walker";
-import { getPackMeta, isRuleInPack, resolvePackSelection, runPackInternalAnalyzers } from "./packs";
+import { getPackMeta, isRuleInPack, listPackMetas, resolvePackSelection, runPackInternalAnalyzers } from "./packs";
 
 function entry(path: string, content: string): FileEntry {
   return { path, content, lines: content.split("\n") };
@@ -43,6 +43,10 @@ describe("packs", () => {
     expect(rubyMeta.name).toBe("ruby");
     expect(String(rubyMeta.description)).toContain("Ruby");
     expect(rubyMeta.projectSignals).toEqual(["ruby"]);
+  });
+
+  test("lists built-in pack metadata through the facade", () => {
+    expect(listPackMetas().map((meta) => meta.name)).toEqual(["js-ts", "python", "rust", "go", "ruby"]);
   });
 
   test("rejects unknown packs", () => {
