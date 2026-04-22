@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from "node:path";
 import { listChangedFiles, listStagedFiles } from "./changed-files";
 import { applyConfigToIssues, loadDesloppifyConfig } from "./config";
 import { readFiles, walkFiles, type FileEntry } from "./analyzers/file-walker";
@@ -28,6 +29,18 @@ interface AnalysisResult {
   externalIssues: Issue[];
   externalTaskNames: string[];
   externalWarnings: string[];
+}
+
+function normalizeIssuePath(targetPath: string, filePath: string): string {
+  if (filePath === "unknown" || filePath.length === 0) return filePath;
+  return isAbsolute(filePath) ? filePath : resolve(targetPath, filePath);
+}
+
+export function normalizeIssuePaths(targetPath: string, issues: Issue[]): Issue[] {
+  return issues.map((issue) => ({
+    ...issue,
+    file: normalizeIssuePath(targetPath, issue.file),
+  }));
 }
 
 export function createAnalysisContext(targetPath: string): AnalysisContext {
@@ -86,7 +99,7 @@ export async function runAnalysisPipeline(
   const externalWarnings = externalResults.flatMap((result: ExternalAnalyzerResult) => result.warning ? [result.warning] : []);
 
   const configuredIssues = applyConfigToIssues(
-    [...internalIssues, ...pluginIssues, ...externalIssues],
+    normalizeIssuePaths(targetPath, [...internalIssues, ...pluginIssues, ...externalIssues]),
     context.loadedConfig.config,
     targetPath,
   );

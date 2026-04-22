@@ -43,9 +43,10 @@ function parseMadgeCycles(stdout: string): string[][] | null {
   return parsed.filter((cycle): cycle is string[] => Array.isArray(cycle) && cycle.every((segment) => typeof segment === "string"));
 }
 
-function buildIssue(scopePath: string, cycle: string[]): Issue {
-  const file = resolve(scopePath, cycle[0] ?? "");
-  const cyclePaths = cycle.map((segment) => resolve(scopePath, segment));
+function buildIssue(targetPath: string, scopePath: string, cycle: string[]): Issue {
+  const scopeRoot = resolve(targetPath, scopePath);
+  const file = resolve(scopeRoot, cycle[0] ?? "");
+  const cyclePaths = cycle.map((segment) => resolve(scopeRoot, segment));
   const cycleStr = cyclePaths.join(" → ") + " → " + cyclePaths[0];
   return {
     id: "CIRCULAR_IMPORT",
@@ -97,7 +98,7 @@ export async function runMadge(targetPath: string): Promise<ExternalAnalyzerResu
 
     for (const cycle of cycles) {
       if (cycle.length === 0) continue;
-      const issue = buildIssue(scopePath, cycle);
+      const issue = buildIssue(targetPath, scopePath, cycle);
       const key = `${issue.file}|${issue.message}`;
       if (seen.has(key)) continue;
       seen.add(key);
