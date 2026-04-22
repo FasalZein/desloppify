@@ -52,6 +52,19 @@ describe("runGrepExtendedFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toEqual(["PICKLE_LOADS"]);
   });
 
+  test("detects cross-language security rules", () => {
+    const issues = runGrepExtendedFromEntries([
+      entry("/repo/src/view.tsx", "return <div dangerouslySetInnerHTML={{ __html: html }} />;"),
+      entry("/repo/src/data.py", "yaml.load(payload)\nsubprocess.run(cmd, shell=True)"),
+    ]);
+
+    expect(issues.map((issue) => issue.id)).toEqual(expect.arrayContaining([
+      "DANGEROUSLY_SET_INNER_HTML",
+      "UNSAFE_YAML_LOAD",
+      "SUBPROCESS_SHELL_TRUE",
+    ]));
+  });
+
   test("detects researched slop lexicon, JS/TS stubs, dead feature flags, and error semantics", () => {
     const issues = runGrepExtendedFromEntries([
       entry("/repo/src/comments.ts", "// quick fix until the API is ready\nconst ok = true;"),

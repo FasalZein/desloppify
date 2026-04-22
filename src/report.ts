@@ -10,10 +10,24 @@ import type {
   ScanReport,
   ToolStatus,
 } from "./types";
+
+export interface ScanReportSummary {
+  schema_version: ScanReport["schema_version"];
+  scan: ScanReport["scan"];
+  architecture?: ScanReport["architecture"];
+  tools: ScanReport["tools"];
+  score: ScanReport["score"];
+  metrics: ScanReport["metrics"];
+  hotspots: ScanReport["hotspots"];
+  summary: ScanReport["summary"];
+  categories: ScanReport["categories"];
+  findingCount: number;
+  ruleCount: number;
+}
 import { buildArchitectureSummary } from "./architecture";
 import { calculateScore, getIssuePenalty } from "./scoring";
 
-export interface ScanInputMetrics {
+interface ScanInputMetrics {
   fileCount: number;
   lineCount: number;
   nonEmptyLineCount: number;
@@ -27,8 +41,29 @@ function toFindingLevel(severity: Issue["severity"]): Finding["level"] {
 
 function fingerprintFor(issue: Issue): string {
   return createHash("sha1")
-    .update([issue.id, issue.file, issue.line, issue.message].join("|"))
+    .update([
+      issue.id,
+      issue.file,
+      issue.line,
+      issue.deltaIdentity ?? issue.message,
+    ].join("|"))
     .digest("hex");
+}
+
+function buildPartialFingerprints(issue: Issue): Record<string, string> {
+  const partial: Record<string, string> = {
+    path_line_rule: `${issue.file}:${issue.line}:${issue.id}`,
+    path_rule_message: `${issue.file}:${issue.id}:${issue.message}`,
+    path_rule: `${issue.file}:${issue.id}`,
+    rule_message: `${issue.id}:${issue.message}`,
+  };
+
+  if (issue.deltaIdentity) {
+    partial.path_rule_delta = `${issue.file}:${issue.id}:${issue.deltaIdentity}`;
+    partial.rule_delta = `${issue.id}:${issue.deltaIdentity}`;
+  }
+
+  return partial;
 }
 
 function dedupeIssues(issues: Issue[]): Issue[] {
@@ -93,7 +128,7 @@ function buildPathHotspots(issues: Issue[]): PathHotspot[] {
     .slice(0, 5);
 }
 
-export function issueToRule(issue: Issue): RuleDefinition {
+function issueToRule(issue: Issue): RuleDefinition {
   return {
     id: issue.id,
     name: ruleName(issue.id),
@@ -104,7 +139,21 @@ export function issueToRule(issue: Issue): RuleDefinition {
   };
 }
 
-export function issueToFinding(issue: Issue): Finding {
+function normalizeFindingPosition(line: number | undefined, column: number | undefined): { line: number; column: number } {
+  return {
+    line: line && line > 0 ? line : 1,
+    column: column && column > 0 ? column : 1,
+  };
+}
+
+function issueToFinding(issue: Issue): Finding {
+  const start = normalizeFindingPosition(issue.line, issue.column);
+  const normalizedEnd = normalizeFindingPosition(issue.endLine ?? issue.line, issue.endColumn ?? issue.column);
+  const end = {
+    line: Math.max(start.line, normalizedEnd.line),
+    column: normalizedEnd.line > start.line ? normalizedEnd.column : Math.max(start.column, normalizedEnd.column),
+  };
+
   return {
     id: fingerprintFor(issue),
     rule_id: issue.id,
@@ -117,20 +166,15 @@ export function issueToFinding(issue: Issue): Finding {
       {
         path: issue.file,
         range: {
-          start: { line: issue.line, column: 1 },
-          end: { line: issue.line, column: 1 },
+          start,
+          end,
         },
       },
     ],
     primary_location_index: 0,
     fingerprints: {
       primary: fingerprintFor(issue),
-      partial: {
-        path_line_rule: `${issue.file}:${issue.line}:${issue.id}`,
-        path_rule_message: `${issue.file}:${issue.id}:${issue.message}`,
-        path_rule: `${issue.file}:${issue.id}`,
-        rule_message: `${issue.id}:${issue.message}`,
-      },
+      partial: buildPartialFingerprints(issue),
     },
     ...(issue.fix
       ? {
@@ -144,6 +188,22 @@ export function issueToFinding(issue: Issue): Finding {
     metadata: {
       tier: issue.tier,
     },
+  };
+}
+
+export function buildScanSummary(report: ScanReport): ScanReportSummary {
+  return {
+    schema_version: report.schema_version,
+    scan: report.scan,
+    architecture: report.architecture,
+    tools: report.tools,
+    score: report.score,
+    metrics: report.metrics,
+    hotspots: report.hotspots,
+    summary: report.summary,
+    categories: report.categories,
+    findingCount: report.findings.length,
+    ruleCount: Object.keys(report.rules).length,
   };
 }
 
@@ -187,7 +247,7 @@ export function buildScanReport(
       generatedAt: new Date().toISOString(),
       pack,
     },
-    architecture: buildArchitectureSummary(architecture, issues),
+    architecture: buildArchitectureSummary(architecture, normalizedIssues),
     tools,
     score,
     metrics,

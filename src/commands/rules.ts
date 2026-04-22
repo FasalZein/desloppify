@@ -24,9 +24,10 @@ export default defineCommand({
     const loadedConfig = loadDesloppifyConfig(process.cwd());
     const pluginCatalog = getConfigPluginRuleCatalog(loadConfigPluginRules(loadedConfig.config, process.cwd()));
 
+    const profileRuleIds = profile ? new Set<string>(profile.ruleIds) : null;
     const filtered = [...BUILTIN_RULE_CATALOG, ...pluginCatalog].filter((r) => {
       if (args.category && r.category !== args.category) return false;
-      if (profile && !profile.ruleIds.includes(r.id)) return false;
+      if (profileRuleIds && !profileRuleIds.has(r.id)) return false;
       if (pack && !isRuleInPack(pack.name, r.id)) return false;
       if (!isRuleEnabled(loadedConfig.config, r.id)) return false;
       return true;

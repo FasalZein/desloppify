@@ -15,9 +15,9 @@ function sortRepos(repos: BenchmarkRepoSnapshot[]): BenchmarkRepoSnapshot[] {
 
 function renderRepoTable(repos: BenchmarkRepoSnapshot[]): string[] {
   return [
-    "| Repo | Blended | Score | Files | Score/file | Score/KLOC | Findings/file | Findings/KLOC |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|",
-    ...sortRepos(repos).map((repo) => `| ${repo.id} | ${formatMetric(repo.blendedScore)} | ${repo.score} | ${repo.metrics.fileCount} | ${formatMetric(repo.metrics.normalized.scorePerFile)} | ${formatMetric(repo.metrics.normalized.scorePerKloc)} | ${formatMetric(repo.metrics.normalized.findingsPerFile)} | ${formatMetric(repo.metrics.normalized.findingsPerKloc)} |`),
+    "| Repo | Source | Ref | Blended | Score | Files | Score/file | Score/KLOC | Findings/file | Findings/KLOC |",
+    "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ...sortRepos(repos).map((repo) => `| ${repo.id} | ${repo.repo ?? repo.path} | ${repo.ref ?? "local"} | ${formatMetric(repo.blendedScore)} | ${repo.score} | ${repo.metrics.fileCount} | ${formatMetric(repo.metrics.normalized.scorePerFile)} | ${formatMetric(repo.metrics.normalized.scorePerKloc)} | ${formatMetric(repo.metrics.normalized.findingsPerFile)} | ${formatMetric(repo.metrics.normalized.findingsPerKloc)} |`),
   ];
 }
 

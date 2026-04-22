@@ -87,6 +87,22 @@ describe("runGrepPatternsFromEntries", () => {
     expect(issues.map((issue) => issue.id)).toContain("FAKE_LOADING_DELAY");
   });
 
+  test("detects model-style fallback anti-patterns", () => {
+    const issues = runGrepPatternsFromEntries([
+      entry("/repo/src/items.ts", "const items = data?.items ?? [];"),
+      entry("/repo/src/options.ts", "const options = config?.options || {};"),
+      entry("/repo/src/handler.ts", "const onError = props.onError || (() => {});"),
+      entry("/repo/src/load.ts", "return Promise.resolve([]);"),
+    ]);
+
+    expect(issues.map((issue) => issue.id)).toEqual(expect.arrayContaining([
+      "EMPTY_ARRAY_FALLBACK",
+      "EMPTY_OBJECT_FALLBACK",
+      "NOOP_LAMBDA_FALLBACK",
+      "PROMISE_RESOLVE_FALLBACK",
+    ]));
+  });
+
   test("ignores decorative banner blocks but still flags lone separators", () => {
     const issues = runGrepPatternsFromEntries([
       entry("/repo/src/banners.ts", "// ====================\n// Streaming Handler\n// Handles SSE streaming\n// ===================="),

@@ -4,7 +4,9 @@ import type { ScanDeltaReport } from "./scan-delta";
 import type { ScanReport } from "./types";
 import type { WikiReport } from "./wiki-output";
 
-export interface SavedReportArtifacts {
+const LOCAL_REPORTS_DIR = ".desloppify/";
+
+interface SavedReportArtifacts {
   dir: string;
   findingsJson: string;
   reportMarkdown: string;
@@ -25,15 +27,28 @@ export function getReportArtifacts(rootPath: string): SavedReportArtifacts {
   };
 }
 
-export function loadSavedScanReport(rootPath: string): ScanReport | null {
+export function loadSavedScanReport(rootPath: string): ScanReport | undefined {
   const artifacts = getReportArtifacts(rootPath);
-  if (!existsSync(artifacts.findingsJson)) return null;
+  if (!existsSync(artifacts.findingsJson)) return undefined;
 
   try {
     return JSON.parse(readFileSync(artifacts.findingsJson, "utf8")) as ScanReport;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
   }
+}
+
+function ensureLocalArtifactsGitignored(rootPath: string): void {
+  if (!existsSync(join(rootPath, ".git"))) return;
+
+  const gitignorePath = join(rootPath, ".gitignore");
+  const current = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : "";
+  const lines = current.split(/\r?\n/).map((line) => line.trim());
+  if (lines.includes(LOCAL_REPORTS_DIR) || lines.includes(LOCAL_REPORTS_DIR.slice(0, -1))) return;
+
+  const prefix = current.length === 0 || current.endsWith("\n") ? "" : "\n";
+  writeFileSync(gitignorePath, `${current}${prefix}${LOCAL_REPORTS_DIR}\n`, "utf8");
 }
 
 export function saveScanArtifacts(
@@ -46,6 +61,7 @@ export function saveScanArtifacts(
 ): SavedReportArtifacts {
   const artifacts = getReportArtifacts(rootPath);
   mkdirSync(artifacts.dir, { recursive: true });
+  ensureLocalArtifactsGitignored(rootPath);
 
   writeFileSync(artifacts.findingsJson, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   writeFileSync(artifacts.reportMarkdown, `${reportMarkdown}\n`, "utf8");

@@ -1,20 +1,19 @@
-import { runAstGrep } from "./analyzers/ast-grep";
-import { runKnip } from "./analyzers/knip";
-import { runMadge } from "./analyzers/madge";
-import { runTsc } from "./analyzers/tsc";
-import { JS_TS_SOURCE_FILE, PYTHON_FILE, isJsTsRule, isPythonAstRule, matches } from "./pack-filters";
-import type { Issue, PackName, ToolStatus } from "./types";
+import { runAstGrep, runBiome, runCargoClippy, runEslint, runGolangciLint, runKnip, runMadge, runOxlint, runRuff, runRubocop, runStaticcheck, runTsc } from "./analyzers";
+import { JS_TS_SOURCE_FILE, PYTHON_FILE, RUST_FILE, isJsTsRule, isPythonAstRule, isRustAstRule, matches } from "./pack-filters";
+import type { PackName, ToolStatus } from "./types";
+import type { ExternalAnalyzerResult } from "./analyzers/external-result";
 
 export interface BuiltinExternalTask {
   name: string;
-  promise: Promise<Issue[]>;
+  promise: Promise<ExternalAnalyzerResult>;
 }
 
-export type BuiltinExternalAnalyzerId = "knip" | "madge" | "ast-grep" | "tsc";
+type BuiltinExternalAnalyzerId = "knip" | "madge" | "ast-grep" | "tsc" | "eslint" | "biome" | "oxlint" | "ruff" | "cargo-clippy" | "staticcheck" | "golangci-lint" | "rubocop";
 
-export interface BuiltinExternalRunOptions {
+interface BuiltinExternalRunOptions {
   category?: string;
   partial?: boolean;
+  withMadge?: boolean;
 }
 
 interface BuiltinExternalAnalyzerDefinition {
@@ -34,13 +33,13 @@ const BUILTIN_EXTERNAL_ANALYZERS: BuiltinExternalAnalyzerDefinition[] = [
   {
     id: "madge",
     pack: "js-ts",
-    enabled: (tools, options) => tools.madge && (!options.category || options.category === "circular-deps"),
+    enabled: (tools, options) => tools.madge && (options.category === "circular-deps" || Boolean(options.withMadge)),
     createTask: (targetPath) => ({ name: "madge", promise: runMadge(targetPath) }),
   },
   {
     id: "ast-grep",
     pack: "js-ts",
-    enabled: (tools) => tools["ast-grep"],
+    enabled: (tools, options) => tools["ast-grep"] && options.category !== "circular-deps",
     createTask: (targetPath) => ({
       name: "ast-grep",
       promise: runAstGrep(targetPath, {
@@ -56,6 +55,24 @@ const BUILTIN_EXTERNAL_ANALYZERS: BuiltinExternalAnalyzerDefinition[] = [
     createTask: (targetPath) => ({ name: "tsc", promise: runTsc(targetPath) }),
   },
   {
+    id: "eslint",
+    pack: "js-ts",
+    enabled: (tools, options) => Boolean(tools.eslint) && !options.category,
+    createTask: (targetPath) => ({ name: "eslint", promise: runEslint(targetPath) }),
+  },
+  {
+    id: "biome",
+    pack: "js-ts",
+    enabled: (tools, options) => Boolean(tools.biome) && !options.category,
+    createTask: (targetPath) => ({ name: "biome", promise: runBiome(targetPath) }),
+  },
+  {
+    id: "oxlint",
+    pack: "js-ts",
+    enabled: (tools, options) => Boolean(tools.oxlint) && !options.category,
+    createTask: (targetPath) => ({ name: "oxlint", promise: runOxlint(targetPath) }),
+  },
+  {
     id: "ast-grep",
     pack: "python",
     enabled: (tools) => tools["ast-grep"],
@@ -66,6 +83,48 @@ const BUILTIN_EXTERNAL_ANALYZERS: BuiltinExternalAnalyzerDefinition[] = [
         fileFilter: (filePath) => matches(filePath, PYTHON_FILE),
       }),
     }),
+  },
+  {
+    id: "ruff",
+    pack: "python",
+    enabled: (tools, options) => Boolean(tools.ruff) && !options.category,
+    createTask: (targetPath) => ({ name: "ruff", promise: runRuff(targetPath) }),
+  },
+  {
+    id: "ast-grep",
+    pack: "rust",
+    enabled: (tools) => tools["ast-grep"],
+    createTask: (targetPath) => ({
+      name: "ast-grep",
+      promise: runAstGrep(targetPath, {
+        ruleFilter: isRustAstRule,
+        fileFilter: (filePath) => matches(filePath, RUST_FILE),
+      }),
+    }),
+  },
+  {
+    id: "cargo-clippy",
+    pack: "rust",
+    enabled: (tools, options) => Boolean(tools["cargo-clippy"]) && !options.category,
+    createTask: (targetPath) => ({ name: "cargo-clippy", promise: runCargoClippy(targetPath) }),
+  },
+  {
+    id: "staticcheck",
+    pack: "go",
+    enabled: (tools, options) => Boolean(tools.staticcheck) && !options.category,
+    createTask: (targetPath) => ({ name: "staticcheck", promise: runStaticcheck(targetPath) }),
+  },
+  {
+    id: "golangci-lint",
+    pack: "go",
+    enabled: (tools, options) => Boolean(tools["golangci-lint"]) && !options.category,
+    createTask: (targetPath) => ({ name: "golangci-lint", promise: runGolangciLint(targetPath) }),
+  },
+  {
+    id: "rubocop",
+    pack: "ruby",
+    enabled: (tools, options) => Boolean(tools.rubocop) && !options.category,
+    createTask: (targetPath) => ({ name: "rubocop", promise: runRubocop(targetPath) }),
   },
 ];
 

@@ -1,7 +1,7 @@
 import type { ScanDeltaReport } from "./scan-delta";
 import type { Finding, RuleDefinition, ScanReport } from "./types";
 
-export interface WikiWorkflowContext {
+interface WikiWorkflowContext {
   project?: string;
   sliceId?: string;
   prdId?: string;
@@ -93,7 +93,8 @@ export function buildWikiReport(report: ScanReport, context: WikiWorkflowContext
   const warningFindings = report.findings.filter((finding) => finding.severity === "MEDIUM");
   const infoFindings = report.findings.filter((finding) => finding.severity === "LOW");
   const delta = context.deltaReport ?? null;
-  const newBlockingChanges = (delta?.changes ?? []).filter((change) => {
+  const deltaChanges = delta ? delta.changes : [];
+  const newBlockingChanges = deltaChanges.filter((change) => {
     if (change.status !== "added" && change.status !== "worsened") return false;
     const head = change.head;
     return Boolean(head && isBlocking(head));

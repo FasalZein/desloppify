@@ -1,6 +1,6 @@
 ---
 managed_by: wiki-forge
-protocol_version: 1
+protocol_version: 2
 project: desloppify
 scope: root
 applies_to: .
@@ -18,22 +18,24 @@ Use `/wiki` for retrieval, refresh, drift, verification, and closeout review.
 If slash-skill aliases are unavailable, run the equivalent `wiki` CLI lifecycle directly.
 `wiki protocol sync` only syncs this managed block; it does not enforce behavior or sync skill policy.
 
-## Wiki Protocol
+## Code Quality
 
-Before starting slice work:
-- `wiki start-slice desloppify <slice-id> --agent <name> --repo <path>`
+Codex (GPT-5-class reviewer) reviews every change before it merges. Write as if a stricter reviewer is watching:
+- Smaller, more focused diffs. Every changed line should trace to the task.
+- Honest names. No `foo`, no `handleStuff`, no vague `utils`.
+- Tight types. No `any`, no unchecked casts, no silent `as unknown as T`.
+- Real error handling. No bare `catch {}`, no swallowed promises, no `throw new Error("TODO")`.
+- Tests that describe behavior, not implementation. Delete shallow tests you replace.
+- Match the surrounding style even when you'd design differently.
 
-During work:
-- `wiki checkpoint desloppify --repo <path>`
-- `wiki lint-repo desloppify --repo <path>`
+Sloppy code costs a review round-trip. Writing it right the first time is faster than arguing with a reviewer.
 
-Before completion:
-- `wiki maintain desloppify --repo <path> --base <rev>`
-- update impacted wiki pages from code and tests
-- `wiki verify-page desloppify <page...> <level>`
-- `wiki verify-slice desloppify <slice-id> --repo <path>`
-- `wiki closeout desloppify --repo <path> --base <rev>`
-- `wiki gate desloppify --repo <path> --base <rev>`
-- `wiki close-slice desloppify <slice-id> --repo <path> --base <rev>`
+## Workflow Enforcement
+
+Load `/forge` for tracked slice work. Load `/wiki` for knowledge-layer work.
+The skills define all available commands. This block enforces the contract, not the command surface.
+
+Agent surface (3 commands): `wiki forge plan desloppify <feature-name>`, `wiki forge run desloppify [slice-id] --repo <path>`, `wiki forge next desloppify`
+Session start: `wiki resume desloppify --repo <path> --base <rev>`
 
 <!-- wiki-forge:agent-protocol:end -->

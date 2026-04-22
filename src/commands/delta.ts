@@ -319,7 +319,7 @@ function summarizeByCategory(delta: ScanDeltaReport): Array<DeltaAnalyticsBucket
     if (change.status === "unchanged") continue;
     const category = change.head?.category ?? change.base?.category;
     if (!category) continue;
-    const bucket = buckets.get(category) ?? createBucket(category, { category });
+    const bucket = buckets.get(category) ?? { ...createBucket(category), category };
     applyChange(bucket, change.status);
     buckets.set(category, bucket);
   }
@@ -334,7 +334,7 @@ function summarizeByPath(delta: ScanDeltaReport): Array<DeltaAnalyticsBucket & {
     if (change.status === "unchanged") continue;
     const path = change.path ?? change.head?.locations[0]?.path ?? change.base?.locations[0]?.path;
     if (!path) continue;
-    const bucket = buckets.get(path) ?? createBucket(path, { path });
+    const bucket = buckets.get(path) ?? { ...createBucket(path), path };
     applyChange(bucket, change.status);
     buckets.set(path, bucket);
   }
@@ -433,7 +433,7 @@ function formatScope(scope: DeltaScope): string {
   ].filter(Boolean).join(", ");
 }
 
-function createBucket<T extends { key: string }>(key: string, extra: Omit<T, "key">): DeltaAnalyticsBucket & T {
+function createBucket(key: string): DeltaAnalyticsBucket {
   return {
     key,
     added: 0,
@@ -443,7 +443,6 @@ function createBucket<T extends { key: string }>(key: string, extra: Omit<T, "ke
     regressionCount: 0,
     improvementCount: 0,
     netCount: 0,
-    ...(extra as T),
   };
 }
 

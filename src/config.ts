@@ -1,35 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, relative, resolve, sep } from "node:path";
-import { resolvePluginConfigExtends } from "./plugin-rules";
+import { createRequire } from "node:module";
+import { dirname, extname, relative, resolve, sep } from "node:path";
+import { matchesConfigGlob } from "./config-glob";
+import { resolvePluginConfigExtends } from "./plugin-loader";
+import type { DesloppifyConfig, LoadedDesloppifyConfig, PluginRuleOptions, RuleOverride } from "./config-types";
 import type { Issue, Severity } from "./types";
-
-export interface RuleOverride {
-  enabled?: boolean;
-  severity?: Severity;
-  weight?: number;
-}
-
-export interface FileOverride {
-  files: string[];
-  rules?: Record<string, RuleOverride>;
-}
-
-export interface DesloppifyConfig {
-  extends?: string[];
-  plugins?: Record<string, string>;
-  rules?: Record<string, RuleOverride>;
-  overrides?: FileOverride[];
-}
-
-export interface LoadedDesloppifyConfig {
-  path: string | null;
-  config: DesloppifyConfig;
-}
 
 const CONFIG_FILENAMES = [
   "desloppify.config.json",
+  "desloppify.config.cjs",
+  "desloppify.config.js",
   ".desloppifyrc",
   ".desloppifyrc.json",
+  ".desloppifyrc.cjs",
+  ".desloppifyrc.js",
 ] as const;
 
 export function loadDesloppifyConfig(rootPath: string): LoadedDesloppifyConfig {
@@ -49,7 +33,7 @@ function loadConfigFile(configPath: string, seen = new Set<string>()): Desloppif
   }
 
   seen.add(resolvedPath);
-  const raw = JSON.parse(readFileSync(resolvedPath, "utf8")) as DesloppifyConfig;
+  const raw = loadConfigValue(resolvedPath);
   let merged: DesloppifyConfig = {};
 
   for (const ref of raw.extends ?? []) {
@@ -68,47 +52,114 @@ function loadConfigFile(configPath: string, seen = new Set<string>()): Desloppif
   return mergeConfigs(mergeConfigs(merged, pluginExtends), { ...raw, extends: undefined });
 }
 
-function mergeConfigs(base: DesloppifyConfig, next: DesloppifyConfig): DesloppifyConfig {
+function loadConfigValue(configPath: string): DesloppifyConfig {
+  if (extname(configPath) === ".json" || !extname(configPath)) {
+    return JSON.parse(readFileSync(configPath, "utf8")) as DesloppifyConfig;
+  }
+
+  const requireConfig = createRequire(configPath);
+  const loaded = requireConfig(configPath) as DesloppifyConfig | { default?: DesloppifyConfig };
+  const config = (loaded as { default?: DesloppifyConfig }).default ?? loaded;
+  return config as DesloppifyConfig;
+}
+
+function mergeRecord<T>(base: Record<string, T> | undefined, next: Record<string, T> | undefined): Record<string, T> | undefined {
+  if (!base) return next ? { ...next } : undefined;
+  if (!next) return { ...base };
   return {
-    plugins: {
-      ...(base.plugins ?? {}),
-      ...(next.plugins ?? {}),
-    },
-    rules: {
-      ...(base.rules ?? {}),
-      ...(next.rules ?? {}),
-    },
-    overrides: [
-      ...(base.overrides ?? []),
-      ...(next.overrides ?? []),
-    ],
+    ...base,
+    ...next,
   };
 }
 
-export function getRuleOverride(config: DesloppifyConfig, ruleId: string): RuleOverride | undefined {
+function mergeList<T>(base: T[] | undefined, next: T[] | undefined): T[] | undefined {
+  if (!base) return next ? [...next] : undefined;
+  if (!next) return [...base];
+  return [...base, ...next];
+}
+
+function cloneOptions(options: PluginRuleOptions | undefined): PluginRuleOptions | undefined {
+  return options ? { ...options } : undefined;
+}
+
+function mergeOptions(base: PluginRuleOptions | undefined, next: PluginRuleOptions | undefined): PluginRuleOptions | undefined {
+  if (!base) return cloneOptions(next);
+  if (!next) return cloneOptions(base);
+  return {
+    ...base,
+    ...next,
+  };
+}
+
+function cloneRuleOverride(override: RuleOverride): RuleOverride {
+  return {
+    ...override,
+    options: cloneOptions(override.options),
+  };
+}
+
+function mergeRuleOverride(base: RuleOverride | undefined, next: RuleOverride | undefined): RuleOverride | undefined {
+  if (!base) return next ? cloneRuleOverride(next) : undefined;
+  if (!next) return cloneRuleOverride(base);
+  return {
+    ...base,
+    ...next,
+    options: mergeOptions(base.options, next.options),
+  };
+}
+
+function mergeRuleOverrides(
+  base: Record<string, RuleOverride> | undefined,
+  next: Record<string, RuleOverride> | undefined,
+): Record<string, RuleOverride> | undefined {
+  if (!base) {
+    return next
+      ? Object.fromEntries(Object.entries(next).map(([ruleId, override]) => [ruleId, cloneRuleOverride(override)]))
+      : undefined;
+  }
+  if (!next) {
+    return Object.fromEntries(Object.entries(base).map(([ruleId, override]) => [ruleId, cloneRuleOverride(override)]));
+  }
+
+  const merged = Object.fromEntries(Object.entries(base).map(([ruleId, override]) => [ruleId, cloneRuleOverride(override)]));
+  for (const [ruleId, override] of Object.entries(next)) {
+    merged[ruleId] = mergeRuleOverride(merged[ruleId], override) ?? cloneRuleOverride(override);
+  }
+  return merged;
+}
+
+function mergeConfigs(base: DesloppifyConfig, next: DesloppifyConfig): DesloppifyConfig {
+  return {
+    plugins: mergeRecord(base.plugins, next.plugins),
+    rules: mergeRuleOverrides(base.rules, next.rules),
+    overrides: mergeList(base.overrides, next.overrides),
+  };
+}
+
+function getTopLevelRuleOverride(config: DesloppifyConfig, ruleId: string): RuleOverride | undefined {
   return config.rules?.[ruleId];
 }
 
-function getOverrideForIssue(config: DesloppifyConfig, ruleId: string, filePath: string, rootPath: string): RuleOverride | undefined {
-  const merged: RuleOverride = { ...(config.rules?.[ruleId] ?? {}) };
+export function resolveRuleOverride(config: DesloppifyConfig, ruleId: string, filePath: string, rootPath: string): RuleOverride | undefined {
+  let merged = mergeRuleOverride(undefined, getTopLevelRuleOverride(config, ruleId));
   const relativePath = toRelativeConfigPath(filePath, rootPath);
 
   for (const override of config.overrides ?? []) {
     if (!override.rules?.[ruleId]) continue;
     if (!override.files.some((pattern) => matchesConfigGlob(relativePath, pattern))) continue;
-    Object.assign(merged, override.rules[ruleId]);
+    merged = mergeRuleOverride(merged, override.rules[ruleId]);
   }
 
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  return merged;
 }
 
 export function isRuleEnabled(config: DesloppifyConfig, ruleId: string): boolean {
-  return getRuleOverride(config, ruleId)?.enabled !== false;
+  return getTopLevelRuleOverride(config, ruleId)?.enabled !== false;
 }
 
 export function applyConfigToIssues(issues: Issue[], config: DesloppifyConfig, rootPath: string): Issue[] {
   return issues.flatMap((issue) => {
-    const override = getOverrideForIssue(config, issue.id, issue.file, rootPath) ?? getRuleOverride(config, issue.id);
+    const override = resolveRuleOverride(config, issue.id, issue.file, rootPath);
     if (override?.enabled === false) return [];
 
     return [{
@@ -124,23 +175,12 @@ function toRelativeConfigPath(filePath: string, rootPath: string): string {
   return (rel.startsWith("..") ? filePath : rel).split(sep).join("/");
 }
 
-export function matchesConfigGlob(path: string, pattern: string): boolean {
-  if (!pattern.includes("*")) return path === pattern || path.endsWith(`/${pattern}`) || path.includes(pattern);
-  const doubleStarToken = "__DESLOPPIFY_DOUBLE_STAR__";
-  const escaped = pattern
-    .replace(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replace(/\*\*/g, doubleStarToken)
-    .replace(/\*/g, "[^/]*")
-    .replaceAll(doubleStarToken, ".*");
-  return new RegExp(`^${escaped}$`).test(path);
-}
-
 export function getRuleScoreWeight(config: DesloppifyConfig, ruleId: string): number | undefined {
-  return getRuleOverride(config, ruleId)?.weight;
+  return getTopLevelRuleOverride(config, ruleId)?.weight;
 }
 
 export function getRuleSeverityOverride(config: DesloppifyConfig, ruleId: string): Severity | undefined {
-  return getRuleOverride(config, ruleId)?.severity;
+  return getTopLevelRuleOverride(config, ruleId)?.severity;
 }
 
 export function getConfigExample(): string {
@@ -152,12 +192,14 @@ export function getConfigExample(): string {
     rules: {
       CONSOLE_LOG: { enabled: false },
       LONG_FILE: { severity: "HIGH", weight: 1.5 },
+      "local/contains-acme": { options: { token: "ACME" } },
     },
     overrides: [
       {
         files: ["src/rules/**"],
         rules: {
           LONG_FILE: { enabled: false },
+          "local/contains-acme": { options: { token: "RULE_TEST_TOKEN" } },
         },
       },
     ],

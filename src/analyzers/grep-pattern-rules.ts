@@ -7,7 +7,6 @@ export interface GrepPatternRuleDefinition {
   severity: Severity;
   tier: Tier;
   message: string;
-  desc: string;
   fix?: string;
   skipTest?: boolean;
 }
@@ -413,6 +412,42 @@ export const GREP_PATTERN_RULES: GrepPatternRuleDefinition[] = [
     tier: 0,
     message: "Chained defensive .get() or fallbacks — simplify the data model",
   },
+  // defensive: empty array fallback hides missing invariant
+  {
+    id: "EMPTY_ARRAY_FALLBACK",
+    pattern: /(?:return\s+|=\s*).*(\?\?|\|\|)\s*\[\s*\]/,
+    category: "defensive-programming",
+    severity: "LOW",
+    tier: 0,
+    message: "Empty array fallback hides missing invariant — fix the source shape instead",
+  },
+  // defensive: empty object fallback hides missing invariant
+  {
+    id: "EMPTY_OBJECT_FALLBACK",
+    pattern: /(?:return\s+|=\s*).*(\?\?|\|\|)\s*\{\s*\}/,
+    category: "defensive-programming",
+    severity: "LOW",
+    tier: 0,
+    message: "Empty object fallback hides missing invariant — fix the source shape instead",
+  },
+  // defensive: noop callback fallback hides missing handler
+  {
+    id: "NOOP_LAMBDA_FALLBACK",
+    pattern: /(\?\?|\|\|)\s*\(?\s*(\(\s*\)\s*=>\s*\{\s*\}|function\s*\([^)]*\)\s*\{\s*\})\s*\)?/,
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "No-op callback fallback hides a missing handler — make the callback required or branch explicitly",
+  },
+  // defensive: promise-resolved empty fallback masks absence as success
+  {
+    id: "PROMISE_RESOLVE_FALLBACK",
+    pattern: /return\s+Promise\.resolve\(\s*(\[\s*\]|\{\s*\}|null|undefined)\s*\)/,
+    category: "defensive-programming",
+    severity: "MEDIUM",
+    tier: 0,
+    message: "Promise.resolve fallback masks missing data as success — handle the absence explicitly",
+  },
 ];
 
 const GREP_PATTERN_RULE_DESCRIPTIONS: Record<string, string> = {
@@ -458,6 +493,10 @@ const GREP_PATTERN_RULE_DESCRIPTIONS: Record<string, string> = {
   KEY_INDEX: "Array index as React key — use stable ID",
   CLIENT_GENERATED_ID: "Client-generated ID for server records",
   OR_CASCADE: "Chained defensive .get() or fallbacks",
+  EMPTY_ARRAY_FALLBACK: "Fallback to [] hides a missing invariant",
+  EMPTY_OBJECT_FALLBACK: "Fallback to {} hides a missing invariant",
+  NOOP_LAMBDA_FALLBACK: "Fallback to a no-op callback hides a missing handler",
+  PROMISE_RESOLVE_FALLBACK: "Promise.resolve fallback hides absence as success",
 };
 
 export const GREP_PATTERN_RULE_CATALOG = GREP_PATTERN_RULES.map(({ id, category, tier }) => ({
@@ -465,5 +504,5 @@ export const GREP_PATTERN_RULE_CATALOG = GREP_PATTERN_RULES.map(({ id, category,
   category,
   tier,
   tool: "grep" as const,
-  desc: GREP_PATTERN_RULE_DESCRIPTIONS[id],
+  desc: GREP_PATTERN_RULE_DESCRIPTIONS[id] ?? id.toLowerCase().replace(/_/g, " "),
 }));

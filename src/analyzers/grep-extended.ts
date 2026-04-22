@@ -24,36 +24,39 @@ function isPromiseWrappedAsyncMap(lines: string[], index: number): boolean {
   if (/Promise\.(all|allSettled|race|any)\s*\([\s\S]*\.map\(\s*async\s/.test(nearby)) return true;
 
   const variableMatch = lines[index]?.match(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*.*\.map\(\s*async\s/);
-  if (!variableMatch) return false;
+  const variableName = variableMatch?.[1];
+  if (!variableName) return false;
 
-  const variableName = variableMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedVariableName = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const followUp = lines.slice(index + 1, Math.min(lines.length, index + 5)).join("\n");
-  return new RegExp(`Promise\\.(all|allSettled|race|any)\\s*\\(\\s*${variableName}\\s*\\)`).test(followUp);
+  return new RegExp(`Promise\\.(all|allSettled|race|any)\\s*\\(\\s*${escapedVariableName}\\s*\\)`).test(followUp);
 }
 
 function isDeadFeatureFlag(lines: string[], index: number): boolean {
   const match = lines[index]?.match(/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*(?:flag|feature|enabled|toggle|experiment|gate)[A-Za-z_$\d]*)\s*=\s*(true|false)\s*;?\s*$/i);
-  if (!match) return false;
-  const variableName = match[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const variableName = match?.[1];
+  if (!variableName) return false;
+  const escapedVariableName = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const followUp = lines.slice(index + 1, Math.min(lines.length, index + 5)).join("\n");
-  return new RegExp(`(?:if\\s*\\(\\s*!?${variableName}\\s*\\)|${variableName}\\s*\\?)`).test(followUp);
+  return new RegExp(`(?:if\\s*\\(\\s*!?${escapedVariableName}\\s*\\)|${escapedVariableName}\\s*\\?)`).test(followUp);
 }
 
 function isCatchWrapNoCause(lines: string[], index: number): boolean {
   const throwLine = lines[index] ?? "";
   const catchMatch = lines.slice(Math.max(0, index - 3), index).join("\n").match(/catch\s*\(\s*([A-Za-z_$][\w$]*)\s*\)/);
-  if (!catchMatch) return false;
-  const errorName = catchMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const errorName = catchMatch?.[1];
+  if (!errorName) return false;
+  const escapedErrorName = errorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const nearby = lines.slice(index, Math.min(lines.length, index + 3)).join("\n");
-  if (new RegExp(`\\bcause\\s*:\\s*${errorName}\\b`).test(nearby)) return false;
-  if (new RegExp(`\\b${errorName}\\b`).test(throwLine)) return false;
+  if (new RegExp(`\\bcause\\s*:\\s*${escapedErrorName}\\b`).test(nearby)) return false;
+  if (new RegExp(`\\b${escapedErrorName}\\b`).test(throwLine)) return false;
   return true;
 }
 
 function scanFileLines(filePath: string, lines: string[], rules: GrepExtendedRuleDefinition[]): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? "";
     for (const rule of rules) {
       if (!rule.pattern.test(line)) continue;
       if (isLineIgnored(line, rule.id)) continue;

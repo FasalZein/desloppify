@@ -2,6 +2,8 @@ import type { Issue } from "../types";
 import { resolve, join } from "path";
 import { readdirSync } from "fs";
 import { loadIgnorePatterns, isFileIgnored } from "../ignore";
+import { resolveToolCommand } from "../tool-command";
+import { externalSuccess, externalWarning, type ExternalAnalyzerResult } from "./external-result";
 
 const RULES_DIR = resolve(import.meta.dir, "../../src/rules");
 const RULE_FILES = readdirSync(RULES_DIR)
@@ -13,10 +15,11 @@ interface AstGrepOptions {
   fileFilter?: (filePath: string) => boolean;
 }
 
-export async function runAstGrep(targetPath: string, options: AstGrepOptions = {}): Promise<Issue[]> {
-  const sgCmd = Bun.which("sg") ? "sg" : "ast-grep";
+export async function runAstGrep(targetPath: string, options: AstGrepOptions = {}): Promise<ExternalAnalyzerResult> {
+  const sgCmd = Bun.which("sg") ? "sg" : resolveToolCommand(targetPath, "ast-grep");
   const ignorePatterns = await loadIgnorePatterns(targetPath);
   const issues: Issue[] = [];
+  const warnings: string[] = [];
 
   for (const ruleFile of RULE_FILES) {
     const result = Bun.spawnSync(
@@ -25,6 +28,11 @@ export async function runAstGrep(targetPath: string, options: AstGrepOptions = {
     );
 
     if (result.exitCode !== 0 && result.exitCode !== 1) {
+      const stderr = result.stderr.toString();
+      if (!stderr.includes("Cannot parse rule")) {
+        const warning = externalWarning("ast-grep", `command exited with code ${result.exitCode ?? 1} for ${ruleFile}`, stderr).warning;
+        if (warning) warnings.push(warning);
+      }
       continue;
     }
 
@@ -52,6 +60,9 @@ export async function runAstGrep(targetPath: string, options: AstGrepOptions = {
           tier: meta.tier,
           file,
           line: match.range?.start?.line ?? match.start?.line ?? 0,
+          column: match.range?.start?.column ?? match.start?.column,
+          endLine: match.range?.end?.line ?? match.end?.line,
+          endColumn: match.range?.end?.column ?? match.end?.column,
           message: match.message ?? meta.message,
           fix: meta.fix,
           tool: "ast-grep",
@@ -62,7 +73,7 @@ export async function runAstGrep(targetPath: string, options: AstGrepOptions = {
     }
   }
 
-  return issues;
+  return warnings.length > 0 ? { issues, warning: warnings.join("\n") } : externalSuccess(issues);
 }
 
 interface RuleMeta {
@@ -177,7 +188,6 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "@deprecated annotation — this code should be removed",
     fix: "Remove the deprecated code and update callers",
   },
-  // Python rules
   BARE_EXCEPT: {
     category: "defensive-programming",
     severity: "HIGH",
@@ -198,7 +208,6 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "print() left in production code",
     fix: "Remove or replace with logging module",
   },
-  // Rust rules
   UNWRAP_CALL: {
     category: "defensive-programming",
     severity: "MEDIUM",
@@ -219,26 +228,11 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "todo!()/unimplemented!() macro left in code",
     fix: "Implement the missing logic or remove",
   },
-  // New structural rules
   MANY_PARAMS: {
     category: "complexity",
     severity: "MEDIUM",
     tier: 0,
     message: "Function with 5+ parameters — consider an options object",
-  },
-  CATCH_LOG_CONTINUE: {
-    category: "defensive-programming",
-    severity: "MEDIUM",
-    tier: 2,
-    message: "Catch block logs and continues — error is swallowed",
-    fix: "Re-throw after logging, or handle the error properly",
-  },
-  CATCH_RETURN_DEFAULT: {
-    category: "defensive-programming",
-    severity: "HIGH",
-    tier: 2,
-    message: "Catch block returns null/default value, hiding errors",
-    fix: "Let the error propagate or handle it meaningfully",
   },
   DEAD_VARIABLE: {
     category: "dead-code",
@@ -247,7 +241,6 @@ const RULE_META: Record<string, RuleMeta> = {
     message: "Variable declared but possibly unused",
     fix: "Remove if unused, or verify it's needed",
   },
-  // Python structural
   BROAD_EXCEPT: {
     category: "defensive-programming",
     severity: "MEDIUM",

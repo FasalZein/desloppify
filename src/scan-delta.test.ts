@@ -48,6 +48,17 @@ describe("scan delta", () => {
     expect(delta.changes[0]?.matchedBy).toBe("path_rule_message");
   });
 
+  test("matches custom-rule findings by stable delta identity before message fallbacks", () => {
+    const base = buildScanReport("/repo", tools, [issue({ line: 3, message: "Contains ACME", deltaIdentity: "ACME" })], { name: "js-ts", explicit: true });
+    const head = buildScanReport("/repo", tools, [issue({ line: 9, message: "Contains ACME marker", deltaIdentity: "ACME" })], { name: "js-ts", explicit: true });
+    const delta = compareScanReports(base, head);
+
+    expect(delta.summary.addedCount).toBe(0);
+    expect(delta.summary.resolvedCount).toBe(0);
+    expect(delta.summary.unchangedCount).toBe(1);
+    expect(delta.changes[0]?.matchedBy).toBe("path_rule_delta");
+  });
+
   test("classifies severity changes as improved or worsened", () => {
     const base = buildScanReport("/repo", tools, [issue({ severity: "LOW" })], { name: "js-ts", explicit: true });
     const head = buildScanReport("/repo", tools, [issue({ severity: "HIGH" })], { name: "js-ts", explicit: true });

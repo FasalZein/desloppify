@@ -31,7 +31,7 @@ export function pickDefaultBaseRef(refs: string[]): string | undefined {
   return;
 }
 
-export function detectBaseRef(repoRoot: string): string {
+function detectBaseRef(repoRoot: string): string {
   const refs = runGit(repoRoot, ["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"])
     .split("\n")
     .map((ref) => ref.trim())

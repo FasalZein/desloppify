@@ -22,6 +22,8 @@ const snapshot: BenchmarkSnapshot = {
     {
       id: "ai",
       path: "./ai",
+      repo: "local/ai",
+      ref: "abc123",
       cohort: "explicit-ai",
       pack: "js-ts",
       score: 80,
@@ -34,6 +36,8 @@ const snapshot: BenchmarkSnapshot = {
     {
       id: "oss",
       path: "./oss",
+      repo: "local/oss",
+      ref: "def456",
       cohort: "mature-oss",
       pack: "js-ts",
       score: 95,
@@ -57,6 +61,8 @@ describe("benchmark report", () => {
     expect(report).toContain("# Benchmark snapshot: Sample");
     expect(report).toContain("## Explicit AI cohort");
     expect(report).toContain("## Cohort medians");
+    expect(report).toContain("| ai | local/ai | abc123 |");
+    expect(report).toContain("| oss | local/oss | def456 |");
     expect(report).toContain("| ai | oss |");
   });
 });

@@ -95,23 +95,25 @@ interface TriageItem {
   resolvedCount: number;
 }
 
-function loadReport(findingsPath: string): ScanReport | null {
-  if (!existsSync(findingsPath)) return null;
+function loadReport(findingsPath: string): ScanReport | undefined {
+  if (!existsSync(findingsPath)) return undefined;
 
   try {
     return JSON.parse(readFileSync(findingsPath, "utf8")) as ScanReport;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
   }
 }
 
-function loadDeltaReport(deltaPath: string): ScanDeltaReport | null {
-  if (!existsSync(deltaPath)) return null;
+function loadDeltaReport(deltaPath: string): ScanDeltaReport | undefined {
+  if (!existsSync(deltaPath)) return undefined;
 
   try {
     return JSON.parse(readFileSync(deltaPath, "utf8")) as ScanDeltaReport;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
   }
 }
 

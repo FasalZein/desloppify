@@ -10,12 +10,12 @@ describe("runAstGrep", () => {
     writeFileSync(join(root, "main.ts"), 'console.log("x");\n');
     writeFileSync(join(root, "worker.py"), 'print("x")\n');
 
-    const issues = await runAstGrep(root, {
+    const result = await runAstGrep(root, {
       ruleFilter: (ruleId) => ruleId === "PRINT_STATEMENT",
       fileFilter: (filePath) => filePath.endsWith(".py"),
     });
 
-    expect(issues.map((issue) => issue.id)).toEqual(["PRINT_STATEMENT"]);
-    expect(issues[0]?.file.endsWith(".py")).toBe(true);
+    expect(result.issues.map((issue) => issue.id)).toEqual(["PRINT_STATEMENT"]);
+    expect(result.issues[0]?.file.endsWith(".py")).toBe(true);
   });
 });

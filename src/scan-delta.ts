@@ -1,7 +1,7 @@
 import type { Finding, ScanReport, Severity } from "./types";
 
 export type DeltaStatus = "added" | "resolved" | "unchanged" | "worsened" | "improved";
-export type DeltaMatchReason = "primary" | "path_rule_message" | "path_rule" | "rule_message";
+export type DeltaMatchReason = "primary" | "path_rule_delta" | "path_rule_message" | "path_rule" | "rule_delta" | "rule_message";
 
 export interface FindingDelta {
   status: DeltaStatus;
@@ -35,7 +35,7 @@ interface IndexedFinding {
   matched: boolean;
 }
 
-const MATCH_REASONS: DeltaMatchReason[] = ["primary", "path_rule_message", "path_rule", "rule_message"];
+const MATCH_REASONS: DeltaMatchReason[] = ["primary", "path_rule_delta", "path_rule_message", "path_rule", "rule_delta", "rule_message"];
 
 function severityRank(severity: Severity): number {
   switch (severity) {
@@ -56,17 +56,22 @@ function primaryLocationPath(finding: Finding): string | null {
 
 function matchKey(finding: Finding, reason: DeltaMatchReason): string | null {
   const primary = finding.fingerprints.primary;
-  const partial = finding.fingerprints.partial ?? {};
+  const partial = finding.fingerprints.partial;
+  if (!partial && reason !== "primary") return null;
 
   switch (reason) {
     case "primary":
       return primary ?? null;
+    case "path_rule_delta":
+      return partial?.path_rule_delta ?? null;
     case "path_rule_message":
-      return partial.path_rule_message ?? null;
+      return partial?.path_rule_message ?? null;
     case "path_rule":
-      return partial.path_rule ?? null;
+      return partial?.path_rule ?? null;
+    case "rule_delta":
+      return partial?.rule_delta ?? null;
     case "rule_message":
-      return partial.rule_message ?? null;
+      return partial?.rule_message ?? null;
   }
 }
 
@@ -106,7 +111,8 @@ export function compareScanReports(base: ScanReport, head: ScanReport): ScanDelt
       if (baseFinding.matched) continue;
       const key = matchKey(baseFinding.finding, reason);
       if (!key) continue;
-      const list = buckets.get(key) ?? [];
+      const existingList = buckets.get(key);
+      const list = existingList ? [...existingList] : [];
       list.push(baseFinding);
       buckets.set(key, list);
     }
@@ -116,7 +122,8 @@ export function compareScanReports(base: ScanReport, head: ScanReport): ScanDelt
       const key = matchKey(headFinding.finding, reason);
       if (!key) continue;
       const candidates = buckets.get(key);
-      const baseFinding = candidates?.find((candidate) => !candidate.matched);
+      if (!candidates) continue;
+      const baseFinding = candidates.find((candidate) => !candidate.matched);
       if (!baseFinding) continue;
 
       baseFinding.matched = true;

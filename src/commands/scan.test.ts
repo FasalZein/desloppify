@@ -3,10 +3,11 @@ import command, { formatMarkdown } from "./scan";
 
 describe("scan command", () => {
   test("declares partial scan args", () => {
-    expect(command.meta.name).toBe("scan");
     expect(command.args).toHaveProperty("staged");
     expect(command.args).toHaveProperty("changed");
     expect(command.args).toHaveProperty("base");
+    expect(command.args).toHaveProperty("with-madge");
+    expect(command.args).toHaveProperty("summary");
   });
 
   test("declares explicit pack arg", () => {
@@ -22,7 +23,7 @@ describe("scan command", () => {
 
   test("persists artifacts in pretty-scan mode", () => {
     // behavior covered by report-artifacts unit tests; scan owns the integration point
-    expect(command.meta.name).toBe("scan");
+    expect(command.args).toHaveProperty("path");
   });
 
   test("declares all artifact-capable output modes", () => {

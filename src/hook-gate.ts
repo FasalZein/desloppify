@@ -15,14 +15,15 @@ export function getBlockingDeltaChanges(changes: FindingDelta[]): FindingDelta[]
   });
 }
 
-function loadSavedDeltaReport(rootPath: string): ScanDeltaReport | null {
+function loadSavedDeltaReport(rootPath: string): ScanDeltaReport | undefined {
   const deltaPath = join(rootPath, ".desloppify", "reports", "latest.delta.json");
-  if (!existsSync(deltaPath)) return null;
+  if (!existsSync(deltaPath)) return undefined;
 
   try {
     return JSON.parse(readFileSync(deltaPath, "utf8")) as ScanDeltaReport;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
   }
 }
 

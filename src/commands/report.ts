@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { defineCommand } from "citty";
 import { resolve } from "node:path";
 import { getReportArtifacts } from "../report-artifacts";
+import { buildScanSummary } from "../report";
 import type { PathHotspot, ScanReport } from "../types";
 
 export default defineCommand({
@@ -10,6 +11,7 @@ export default defineCommand({
     path: { type: "positional", description: "Repo path containing .desloppify reports", default: "." },
     report: { type: "string", description: "Explicit findings report JSON path" },
     json: { type: "boolean", description: "JSON output" },
+    summary: { type: "boolean", description: "Emit compact JSON summary instead of the full saved findings payload" },
   },
   run({ args }) {
     const rootPath = resolve(args.path);
@@ -21,7 +23,7 @@ export default defineCommand({
     const report = JSON.parse(readFileSync(reportPath, "utf8")) as ScanReport;
 
     if (args.json) {
-      console.log(JSON.stringify(report, null, 2));
+      console.log(JSON.stringify(args.summary ? buildScanSummary(report) : report, null, 2));
       return;
     }
 

@@ -264,7 +264,8 @@ function buildDynamicLimits(contexts: FileContext[], architectureName?: Architec
 
   for (const context of contexts) {
     if (context.isGenerated) continue;
-    const values = valuesByCohort.get(context.cohortKey) ?? [];
+    const existingValues = valuesByCohort.get(context.cohortKey);
+    const values = existingValues ? [...existingValues] : [];
     values.push(context.loc);
     valuesByCohort.set(context.cohortKey, values);
   }
@@ -274,7 +275,8 @@ function buildDynamicLimits(contexts: FileContext[], architectureName?: Architec
     if (limitsByCohort.has(context.cohortKey)) continue;
     const bucket = classifyLocBucket(context);
     const base = getBaseLimits(context, architectureName);
-    limitsByCohort.set(context.cohortKey, applyDynamicLift(base, valuesByCohort.get(context.cohortKey) ?? [], bucket));
+    const cohortValues = valuesByCohort.get(context.cohortKey);
+    limitsByCohort.set(context.cohortKey, applyDynamicLift(base, cohortValues ? [...cohortValues] : [], bucket));
   }
 
   return limitsByCohort;

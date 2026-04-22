@@ -30,17 +30,17 @@ function resolveImportPath(filePath: string, importPath: string): string {
 
 function getModuleInfo(filePath: string): ModuleInfo | undefined {
   const packageMatch = filePath.match(/\/packages\/[^/]+\/src\/([^/]+)(?:\/(.*))?$/);
-  if (packageMatch) {
+  if (packageMatch?.[1]) {
     return { module: packageMatch[1], subpath: packageMatch[2] ?? "" };
   }
 
   const srcModuleMatch = filePath.match(/\/src\/modules\/([^/]+)(?:\/(.*))?$/);
-  if (srcModuleMatch) {
+  if (srcModuleMatch?.[1]) {
     return { module: srcModuleMatch[1], subpath: srcModuleMatch[2] ?? "" };
   }
 
   const virtualSrcModuleMatch = filePath.match(/\/virtual\/src\/modules\/([^/]+)(?:\/(.*))?$/);
-  if (virtualSrcModuleMatch) {
+  if (virtualSrcModuleMatch?.[1]) {
     return { module: virtualSrcModuleMatch[1], subpath: virtualSrcModuleMatch[2] ?? "" };
   }
 
@@ -67,7 +67,7 @@ export function runArchitectureProfileFromEntries(entries: FileEntry[], options:
     const isRouteRegistrarIndex = profile.allowRouteRegistrarIndex && isRouteFile && fileName === "index.ts";
 
     for (let i = 0; i < entry.lines.length; i++) {
-      const line = entry.lines[i];
+      const line = entry.lines[i] ?? "";
       const importPath = parseImport(line);
       if (!importPath) continue;
 

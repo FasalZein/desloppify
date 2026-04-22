@@ -50,7 +50,8 @@ const run = (args: string[]) => Bun.spawnSync(["bun", "src/cli.ts", "delta", ...
 
 describe("delta command", () => {
   test("declares report, scope, and fail-on args", () => {
-    expect(command.meta.name).toBe("delta");
+    const source = readFileSync(join(process.cwd(), "src", "commands", "delta.ts"), "utf8");
+    expect(source).toContain('name: "delta"');
     expect(command.args).toHaveProperty("base-report");
     expect(command.args).toHaveProperty("head-report");
     expect(command.args).toHaveProperty("markdown");

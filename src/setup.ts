@@ -1,5 +1,5 @@
-export const SKILL_INSTALL_COMMAND = ["npx", "skills", "add", "FasalZein/desloppify"] as const;
-export const HOOKS_INSTALL_COMMAND = ["git", "config", "core.hooksPath", ".githooks", "&&", "chmod", "+x", ".githooks/pre-commit", ".githooks/pre-push"] as const;
+const SKILL_INSTALL_COMMAND = ["npx", "skills", "add", "FasalZein/desloppify"] as const;
+const HOOKS_INSTALL_COMMAND = ["git", "config", "core.hooksPath", ".githooks", "&&", "chmod", "+x", ".githooks/pre-commit", ".githooks/pre-push"] as const;
 
 function formatCommand(parts: readonly string[]) {
   return parts.join(" ");
@@ -35,9 +35,10 @@ export function formatSetupGuide(): string {
     "   desloppify check-tools .",
     "",
     "4. Run your first scan with the suggested pack:",
-    "   bunx desloppify scan . --pack js-ts",
+    "   bunx desloppify scan . --pack <suggested-pack>",
     "",
     "Saved reports appear under .desloppify/reports/ after a normal scan.",
+    "The first artifact-writing scan auto-adds .desloppify/ to .gitignore in git repos.",
     "Current score and next-step hints are shown in the terminal summary.",
   ].join("\n");
 }

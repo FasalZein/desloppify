@@ -30,6 +30,7 @@ describe("report command", () => {
     expect(source).toContain('name: "report"');
     expect(source).toContain('report: { type: "string"');
     expect(source).toContain('json: { type: "boolean"');
+    expect(source).toContain('summary: { type: "boolean"');
   });
 
   test("renders normalized metrics from a saved scan report", () => {
@@ -46,5 +47,19 @@ describe("report command", () => {
     expect(output).toContain("Normalized metrics:");
     expect(output).toContain("Path hotspots:");
     expect(output).toContain("src/example.ts");
+  });
+
+  test("emits compact summary json on demand", () => {
+    const root = createTempRepo();
+    run(["scan", root, "--pack", "js-ts", "--json"]);
+
+    const result = run(["report", root, "--json", "--summary"]);
+    const parsed = JSON.parse(result.stdout.toString());
+
+    expect(result.exitCode).toBe(0);
+    expect(parsed.findingCount).toBeGreaterThan(0);
+    expect(parsed.ruleCount).toBeGreaterThan(0);
+    expect(parsed.findings).toBeUndefined();
+    expect(parsed.rules).toBeUndefined();
   });
 });

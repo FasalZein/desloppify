@@ -1,11 +1,12 @@
 import type { FileEntry } from "./analyzers/file-walker";
+import { PACK_NAMES } from "./domain/pack-catalog";
 import { getBuiltinPackDefinition, type PackExternalTask, type PackMeta, type PackRunOptions } from "./pack-registry";
 import type { Issue, PackName, PackSelection, ToolStatus } from "./types";
 
 export { isRuleInPack } from "./pack-filters";
 
-export function isPackName(value: string): value is PackName {
-  return ["js-ts", "python"].includes(value as PackName);
+function isPackName(value: string): value is PackName {
+  return PACK_NAMES.includes(value as PackName);
 }
 
 export function resolvePackSelection(value?: string): PackSelection {

@@ -2,7 +2,7 @@
  * Terminal UI for desloppify — clack-based with burnt orange theme.
  */
 import * as p from "@clack/prompts";
-import type { Issue } from "./types";
+import type { Issue, ToolStatus } from "./types";
 
 // ── Burnt orange theme (ANSI 256-color) ────────────────────────
 const t = {
@@ -171,7 +171,7 @@ export function createSpinner() {
   return p.spinner();
 }
 
-export function showTools(tools: Record<string, boolean>) {
+export function showTools(tools: Record<string, boolean | undefined> | ToolStatus) {
   const active = Object.entries(tools).filter(([, v]) => v).map(([k]) => `${t.green}${k}${t.reset}`);
   const inactive = Object.entries(tools).filter(([, v]) => !v).map(([k]) => k);
   const parts = [active.join(", ")];
@@ -179,8 +179,26 @@ export function showTools(tools: Record<string, boolean>) {
   p.log.info(`Tools: ${parts.join("  ")}`);
 }
 
+function scoreColor(score: number) {
+  if (score >= 85) return t.green;
+  if (score >= 50) return t.gold;
+  return t.rust;
+}
+
+function categoryGaugeColor(count: number) {
+  if (count > 20) return t.rust;
+  if (count > 5) return t.gold;
+  return t.orange;
+}
+
+function severityLog(severity: string) {
+  if (severity === "CRITICAL") return p.log.error;
+  if (severity === "HIGH") return p.log.warn;
+  return p.log.message;
+}
+
 export function showScore(score: number, grade: string, total: number, penalty: number) {
-  const gradeCol = score >= 85 ? t.green : score >= 50 ? t.gold : t.rust;
+  const gradeCol = scoreColor(score);
   const filled = Math.max(1, Math.round(score / 10));
   const unfilled = Math.max(0, 10 - filled);
   const scoreGauge = `${gradeCol}${"█".repeat(filled)}${t.dim}${"░".repeat(unfilled)}${t.reset}`;
@@ -230,7 +248,7 @@ export function showCategories(categories: Record<string, { count: number; fixab
 
   for (const [cat, data] of sorted) {
     const gauge = "█".repeat(Math.max(1, Math.round((data.count / maxCount) * 15)));
-    const gaugeColor = data.count > 20 ? t.rust : data.count > 5 ? t.gold : t.orange;
+    const gaugeColor = categoryGaugeColor(data.count);
     const fixStr = data.fixable > 0 ? `  ${t.green}${data.fixable} fixable${t.reset}` : "";
     lines.push(
       `${t.cream}${humanCategory(cat).padEnd(24)}${t.reset} ${String(data.count).padStart(4)}${fixStr}  ${gaugeColor}${gauge}${t.reset}`
@@ -271,7 +289,7 @@ function showIssuesBySeverity(issues: Issue[], limit: number) {
       lines.push(`${t.dim}  ... and ${sevIssues.length - shown.length} more ${sev.toLowerCase()} issues${t.reset}`);
     }
 
-    const logFn = sev === "CRITICAL" ? p.log.error : sev === "HIGH" ? p.log.warn : p.log.message;
+    const logFn = severityLog(sev);
     logFn(lines.join("\n"));
   }
 }

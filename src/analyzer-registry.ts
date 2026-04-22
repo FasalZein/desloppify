@@ -3,22 +3,23 @@ import { runFileMetricsFromEntries } from "./analyzers/file-metrics";
 import { runGrepExtendedFromEntries } from "./analyzers/grep-extended";
 import { runGrepPatternsFromEntries } from "./analyzers/grep-patterns";
 import type { FileEntry } from "./analyzers/file-walker";
+import type { ArchitectureProfileName } from "./architecture";
 import type { Issue } from "./types";
 
-export type BuiltinTextAnalyzerId = "grep-patterns" | "grep-extended";
-export type BuiltinInternalAnalyzerId = BuiltinTextAnalyzerId | "file-metrics" | "architecture-profile";
+type BuiltinTextAnalyzerId = "grep-patterns" | "grep-extended";
+type BuiltinInternalAnalyzerId = BuiltinTextAnalyzerId | "file-metrics" | "architecture-profile";
 
-export interface BuiltinAnalyzerRunOptions {
-  architecture?: string;
+interface BuiltinAnalyzerRunOptions {
+  architecture?: ArchitectureProfileName;
   ruleFilter?: (id: string) => boolean;
 }
 
-export interface BuiltinInternalAnalyzerDefinition {
+interface BuiltinInternalAnalyzerDefinition {
   id: BuiltinInternalAnalyzerId;
   run: (entries: FileEntry[], options?: BuiltinAnalyzerRunOptions) => Issue[];
 }
 
-export const BUILTIN_INTERNAL_ANALYZERS: BuiltinInternalAnalyzerDefinition[] = [
+const BUILTIN_INTERNAL_ANALYZERS: BuiltinInternalAnalyzerDefinition[] = [
   { id: "grep-patterns", run: (entries, options) => runGrepPatternsFromEntries(entries, options?.ruleFilter) },
   { id: "grep-extended", run: (entries, options) => runGrepExtendedFromEntries(entries, options?.ruleFilter) },
   { id: "file-metrics", run: (entries, options) => runFileMetricsFromEntries(entries, { architecture: options?.architecture }) },
@@ -29,7 +30,7 @@ export function runBuiltinEntryAnalyzers(
   entries: FileEntry[],
   options: {
     ids?: BuiltinInternalAnalyzerId[];
-    architecture?: string;
+    architecture?: ArchitectureProfileName;
     ruleFilter?: (id: string) => boolean;
   } = {},
 ): Issue[] {

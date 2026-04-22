@@ -98,7 +98,9 @@ function applyBlendedScores(repos: BenchmarkRepoSnapshot[]): BenchmarkRepoSnapsh
 }
 
 function buildPairings(set: BenchmarkSet, repos: BenchmarkRepoSnapshot[]): BenchmarkPairSnapshot[] {
-  return (set.pairings ?? []).map((pairing) => {
+  if (!set.pairings) return [];
+
+  return set.pairings.map((pairing) => {
     const aiRepo = repos.find((repo) => repo.id === pairing.aiRepoId);
     const solidRepo = repos.find((repo) => repo.id === pairing.solidRepoId);
     if (!aiRepo || !solidRepo) {

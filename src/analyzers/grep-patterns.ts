@@ -10,7 +10,7 @@ const KNOWN_NUMERIC_SUFFIX_TERMS = /\b\w*(?:bm25|md5|sha(?:1|224|256|384|512)|ba
 
 function nextMeaningfulLine(lines: string[], start: number): { index: number; text: string } | null {
   for (let i = start; i < lines.length; i++) {
-    const text = lines[i].trim();
+    const text = lines[i]?.trim() ?? "";
     if (!text) continue;
     return { index: i, text };
   }
@@ -19,7 +19,7 @@ function nextMeaningfulLine(lines: string[], start: number): { index: number; te
 
 function previousMeaningfulLine(lines: string[], start: number): { index: number; text: string } | null {
   for (let i = start; i >= 0; i--) {
-    const text = lines[i].trim();
+    const text = lines[i]?.trim() ?? "";
     if (!text) continue;
     return { index: i, text };
   }
@@ -68,7 +68,7 @@ function isCatchLogAndRethrow(lines: string[], index: number): boolean {
 }
 
 function isRedundantBooleanReturn(lines: string[], index: number): boolean {
-  const line = lines[index].trim();
+  const line = lines[index]?.trim() ?? "";
   if (/\b(continue|break|throw)\b/.test(line)) return false;
   for (let i = Math.max(0, index - 3); i < index; i++) {
     if (/^\s*(for|while)\b/.test(lines[i] ?? "")) return false;
@@ -103,7 +103,7 @@ function isRedundantBooleanReturn(lines: string[], index: number): boolean {
 function scanFileLines(filePath: string, lines: string[], isTestFile: boolean, ruleFilter?: (id: string) => boolean): Issue[] {
   const found: Issue[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? "";
     const nextLine = lines[i + 1] ?? "";
     for (const rule of RULES) {
       if (ruleFilter && !ruleFilter(rule.id)) continue;
@@ -117,7 +117,8 @@ function scanFileLines(filePath: string, lines: string[], isTestFile: boolean, r
       if (rule.id === "LOG_AND_RETHROW" && !isCatchLogAndRethrow(lines, i)) continue;
       if (rule.id === "UNNECESSARY_INTERMEDIATE") {
         const match = line.match(/^\s*(const|let)\s+(\w+)\s*=\s*.+;\s*$/);
-        if (!match || nextLine.trim() !== `return ${match[2]};`) continue;
+        const variableName = match?.[2];
+        if (!variableName || nextLine.trim() !== `return ${variableName};`) continue;
       }
       if (rule.id === "REDUNDANT_BOOLEAN_RETURN" && !isRedundantBooleanReturn(lines, i)) continue;
       if (rule.id === "NUMERIC_SUFFIX" && KNOWN_NUMERIC_SUFFIX_TERMS.test(line)) continue;

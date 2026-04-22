@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+setDefaultTimeout(15000);
 
 const tempRoots: string[] = [];
 const cliPath = join(process.cwd(), "src/cli.ts");
@@ -59,6 +61,7 @@ describe("benchmark command", () => {
     expect(snapshotJson.repos).toHaveLength(2);
     expect(snapshotJson.pairings[0].aiRepoId).toBe("ai");
     expect(reportText).toContain("## Explicit AI cohort");
+    expect(reportText).toContain(`| ai | ${join(root, "ai-repo")} | local |`);
     expect(reportText).toContain("## Pairings");
   });
 
@@ -106,7 +109,10 @@ describe("benchmark command", () => {
     expect(report.exitCode).toBe(0);
 
     const snapshotJson = JSON.parse(readFileSync(join(root, "artifacts", "snapshot.json"), "utf8"));
+    const reportText = readFileSync(join(root, "artifacts", "report.md"), "utf8");
     expect(snapshotJson.repos[0].ref).toBe(aiRef);
     expect(snapshotJson.repos[1].ref).toBe(ossRef);
+    expect(reportText).toContain(`| ai | local/ai | ${aiRef} |`);
+    expect(reportText).toContain(`| oss | local/oss | ${ossRef} |`);
   });
 });

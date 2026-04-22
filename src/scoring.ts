@@ -56,11 +56,10 @@ export function calculateScore(issues: Issue[]): {
     const catWeight = CATEGORY_WEIGHTS[issue.category] ?? 1.0;
     const penalty = getIssuePenalty(issue);
 
-    if (!categoryScores[issue.category]) {
-      categoryScores[issue.category] = { count: 0, penalty: 0, weight: catWeight };
-    }
-    categoryScores[issue.category].count++;
-    categoryScores[issue.category].penalty += penalty;
+    const bucket = categoryScores[issue.category] ?? { count: 0, penalty: 0, weight: catWeight };
+    bucket.count++;
+    bucket.penalty += penalty;
+    categoryScores[issue.category] = bucket;
   }
 
   let totalPenalty = 0;

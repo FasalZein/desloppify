@@ -1,4 +1,5 @@
-import type { PackName, ToolStatus } from "./types";
+import { PACK_CATALOG, type PackName } from "./domain/pack-catalog";
+import type { ToolStatus } from "./types";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -10,26 +11,45 @@ function commandExists(cmd: string): boolean {
   return result.exitCode === 0;
 }
 
-function localBinExists(cmd: string): boolean {
+function cargoSubcommandAvailable(subcommand: string): boolean {
+  if (!commandExists("cargo")) return false;
+  const result = Bun.spawnSync(["cargo", subcommand, "--version"], {
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: 5_000,
+  });
+  return result.exitCode === 0;
+}
+
+function localBinExists(cmd: string, rootPath = process.cwd()): boolean {
   try {
-    return existsSync(join(process.cwd(), "node_modules", ".bin", cmd));
+    return existsSync(join(rootPath, "node_modules", ".bin", cmd));
   } catch {
     return false;
   }
 }
 
-function toolAvailable(cmd: string): boolean {
-  return commandExists(cmd) || localBinExists(cmd);
+function toolAvailable(cmd: string, rootPath = process.cwd()): boolean {
+  return commandExists(cmd) || localBinExists(cmd, rootPath);
 }
 
-export function detectTools(): ToolStatus {
+export function detectTools(rootPath = process.cwd()): ToolStatus {
   return {
-    knip: toolAvailable("knip"),
-    madge: toolAvailable("madge"),
-    "ast-grep": toolAvailable("sg") || toolAvailable("ast-grep"),
-    tsc: toolAvailable("tsc"),
-    eslint: toolAvailable("eslint"),
-    biome: toolAvailable("biome"),
+    knip: toolAvailable("knip", rootPath),
+    madge: toolAvailable("madge", rootPath),
+    "ast-grep": toolAvailable("sg", rootPath) || toolAvailable("ast-grep", rootPath),
+    tsc: toolAvailable("tsc", rootPath),
+    eslint: toolAvailable("eslint", rootPath),
+    biome: toolAvailable("biome", rootPath),
+    oxlint: toolAvailable("oxlint", rootPath),
+    oxfmt: toolAvailable("oxfmt", rootPath),
+    ruff: commandExists("ruff"),
+    mypy: commandExists("mypy"),
+    vulture: commandExists("vulture"),
+    "cargo-clippy": cargoSubcommandAvailable("clippy"),
+    staticcheck: commandExists("staticcheck"),
+    "golangci-lint": commandExists("golangci-lint"),
+    rubocop: commandExists("rubocop"),
   };
 }
 
@@ -43,6 +63,7 @@ export function detectProject(targetPath: string): ProjectInfo {
     python: has("pyproject.toml") || has("setup.py") || has("requirements.txt"),
     rust: has("Cargo.toml"),
     go: has("go.mod"),
+    ruby: has("Gemfile") || has(".ruby-version"),
     react: has("package.json") && (
       existsSync(join(targetPath, "node_modules", "react")) ||
       existsSync(join(targetPath, "node_modules", "next"))
@@ -50,27 +71,22 @@ export function detectProject(targetPath: string): ProjectInfo {
   };
 }
 
-export interface ProjectInfo {
+interface ProjectInfo {
   typescript: boolean;
   javascript: boolean;
   python: boolean;
   rust: boolean;
   go: boolean;
+  ruby: boolean;
   react: boolean;
 }
 
 export function detectAvailablePacks(targetPath: string): PackName[] {
   const project = detectProject(targetPath);
-  const packs: PackName[] = [];
 
-  if (project.javascript || project.typescript || project.react) {
-    packs.push("js-ts");
-  }
-  if (project.python) {
-    packs.push("python");
-  }
-
-  return packs;
+  return (Object.entries(PACK_CATALOG) as Array<[PackName, (typeof PACK_CATALOG)[PackName]]>)
+    .filter(([, definition]) => definition.projectSignals.some((signal) => project[signal]))
+    .map(([pack]) => pack);
 }
 
 export function detectSuggestedPack(targetPath: string): PackName | null {
@@ -78,7 +94,7 @@ export function detectSuggestedPack(targetPath: string): PackName | null {
   return packs.length === 1 ? packs[0] ?? null : null;
 }
 
-export interface ToolRecommendation {
+interface ToolRecommendation {
   name: string;
   description: string;
   install: string;
@@ -132,7 +148,15 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Blazing fast linter (Rust-based, 50-100x faster than ESLint)",
       install: "bun add -d oxlint  or  npm i -D oxlint",
       relevance: "Fast pre-commit slop blocker — catches common anti-patterns instantly",
-      available: commandExists("oxlint") || localBinExists("oxlint"),
+      available: Boolean(tools.oxlint),
+    });
+
+    recs.push({
+      name: "oxfmt",
+      description: "Fast formatter from the Oxc toolchain",
+      install: "bun add -d oxfmt  or  npm i -D oxfmt",
+      relevance: "Keeps JS/TS formatting deterministic alongside oxlint",
+      available: Boolean(tools.oxfmt),
     });
   }
 
@@ -153,7 +177,7 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Fast Python linter + formatter (Rust-based)",
       install: "pip install ruff  or  brew install ruff",
       relevance: "Catches Python anti-patterns, replaces flake8 + isort + pyupgrade",
-      available: commandExists("ruff"),
+      available: Boolean(tools.ruff),
     });
 
     recs.push({
@@ -161,7 +185,7 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Static type checker for Python",
       install: "pip install mypy",
       relevance: "Catches type errors and unsafe casts",
-      available: commandExists("mypy"),
+      available: Boolean(tools.mypy),
     });
 
     recs.push({
@@ -169,7 +193,7 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Dead code detection for Python",
       install: "pip install vulture",
       relevance: "Finds unused functions, variables, imports",
-      available: commandExists("vulture"),
+      available: Boolean(tools.vulture),
     });
   }
 
@@ -180,7 +204,7 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Rust linter (catches common mistakes and anti-patterns)",
       install: "rustup component add clippy",
       relevance: "Catches unwrap(), expect(), and other Rust anti-patterns",
-      available: commandExists("cargo"),
+      available: Boolean(tools["cargo-clippy"]),
     });
   }
 
@@ -191,7 +215,7 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Go linter (catches bugs and anti-patterns)",
       install: "go install honnef.co/go/tools/cmd/staticcheck@latest",
       relevance: "Catches common Go mistakes beyond what go vet finds",
-      available: commandExists("staticcheck"),
+      available: Boolean(tools.staticcheck),
     });
 
     recs.push({
@@ -199,7 +223,17 @@ export function getRecommendations(targetPath: string): ToolRecommendation[] {
       description: "Meta-linter for Go (runs many linters in parallel)",
       install: "brew install golangci-lint  or  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
       relevance: "Aggregates dozens of Go linters into one fast run",
-      available: commandExists("golangci-lint"),
+      available: Boolean(tools["golangci-lint"]),
+    });
+  }
+
+  if (project.ruby) {
+    recs.push({
+      name: "rubocop",
+      description: "Ruby linter and formatter",
+      install: "bundle add --group development rubocop  or  gem install rubocop",
+      relevance: "Catches Ruby style, correctness, and maintainability issues early",
+      available: Boolean(tools.rubocop),
     });
   }
 

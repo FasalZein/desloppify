@@ -1,0 +1,28 @@
+{
+  "overrides": [
+    {
+      "files": ["src/commands/**", "src/cli.ts"],
+      "rules": {
+        "CONSOLE_LOG": { "enabled": false }
+      }
+    },
+    {
+      "files": ["src/commands/scan.ts"],
+      "rules": {
+        "IMPORT_HEAVY": { "enabled": false }
+      }
+    },
+    {
+      "files": [
+        "src/commands/delta.ts",
+        "src/analyzers/grep-extended-rules.ts",
+        "src/analyzers/grep-pattern-rules.ts",
+        "src/analyzers/file-metrics.ts"
+      ],
+      "rules": {
+        "LONG_FILE": { "enabled": false },
+        "LARGE_FILE": { "enabled": false }
+      }
+    }
+  ]
+}

@@ -34,7 +34,7 @@ export const ARCHITECTURE_PROFILES = {
 } as const;
 
 export type ArchitectureProfileName = keyof typeof ARCHITECTURE_PROFILES;
-export type ArchitectureProfile = (typeof ARCHITECTURE_PROFILES)[ArchitectureProfileName];
+type ArchitectureProfile = (typeof ARCHITECTURE_PROFILES)[ArchitectureProfileName];
 
 const ARCHITECTURE_ALIASES = new Map<string, ArchitectureProfileName>([
   ["gii-mvp", "modular-monolith"],
@@ -67,7 +67,8 @@ export function buildArchitectureSummary(value: string | undefined, issues: Issu
   const profile = getArchitectureProfile(value);
   if (!profile) return undefined;
 
-  const relevant = issues.filter((issue) => profile.ruleIds.includes(issue.id));
+  const ruleIds = new Set<string>(profile.ruleIds);
+  const relevant = issues.filter((issue) => ruleIds.has(issue.id));
   const violations: Record<string, number> = {};
   let penalty = 0;
 

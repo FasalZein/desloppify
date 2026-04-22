@@ -23,6 +23,7 @@ describe("setup helpers", () => {
     expect(guide).toContain("npx skills add FasalZein/desloppify");
     expect(guide).toContain("desloppify install-hooks");
     expect(guide).toContain("desloppify check-tools .");
-    expect(guide).toContain("bunx desloppify scan . --pack js-ts");
+    expect(guide).toContain("bunx desloppify scan . --pack <suggested-pack>");
+    expect(guide).toContain("auto-adds .desloppify/ to .gitignore");
   });
 });

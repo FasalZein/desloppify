@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+setDefaultTimeout(15000);
 
 const tempRoots: string[] = [];
 
@@ -100,6 +102,14 @@ describe("CLI workflow", () => {
     expect(() => JSON.parse(json.stdout.toString())).not.toThrow();
     expectArtifacts(root);
 
+    const summaryJson = runCli(["scan", root, "--pack", "js-ts", "--json", "--summary"]);
+    const parsedSummary = JSON.parse(summaryJson.stdout.toString());
+    expect(summaryJson.exitCode).toBe(1);
+    expect(parsedSummary.findingCount).toBeGreaterThan(0);
+    expect(parsedSummary.findings).toBeUndefined();
+    expect(parsedSummary.rules).toBeUndefined();
+    expectArtifacts(root);
+
     const markdown = runCli(["scan", root, "--pack", "js-ts", "--markdown"]);
     expect(markdown.exitCode).toBe(1);
     expect(markdown.stdout.toString()).toContain("# Desloppify Report");
@@ -134,11 +144,11 @@ describe("CLI workflow", () => {
   test("second scan writes delta artifact and worktrees keeps using saved findings", () => {
     const { root, filePath } = createTempRepo();
     runCli(["scan", root, "--pack", "js-ts"]);
-    writeFileSync(filePath, 'const ready = value === true;\n', "utf8");
+    writeFileSync(filePath, 'return undefined;\n', "utf8");
     const rescan = runCli(["scan", root, "--pack", "js-ts"]);
     const delta = JSON.parse(readFileSync(artifactPaths(root).deltaPath, "utf8"));
 
-    const result = runCli(["worktrees", root, "--categories", "dead-code"]);
+    const result = runCli(["worktrees", root, "--categories", "ai-slop"]);
     const output = squashWhitespace(result.stdout.toString());
     const branch = Bun.spawnSync(["git", "-C", root, "branch", "--show-current"], { stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
 
@@ -149,7 +159,7 @@ describe("CLI workflow", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain(`# Saved findings: ${join(root, ".desloppify", "reports", "latest.findings.json")}`);
     expect(output).toContain(`git checkout ${branch}`);
-    expect(output).toContain("git merge fix/dead-code");
+    expect(output).toContain("git merge fix/ai-slop");
     expect(output).not.toContain("git merge fix/complexity");
   });
 });

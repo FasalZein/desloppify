@@ -1,4 +1,6 @@
-export type PackName = "js-ts" | "python";
+import type { PackName } from "./domain/pack-catalog";
+
+export type { PackName } from "./domain/pack-catalog";
 
 export interface PackSelection {
   name: PackName;
@@ -33,20 +35,33 @@ export interface Issue {
   tier: Tier;
   file: string;
   line: number;
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
   message: string;
   fix?: string;
   tool: string;
   scoreWeight?: number;
+  deltaIdentity?: string;
 }
 
 export interface ToolStatus {
-  [key: string]: boolean;
+  [key: string]: boolean | undefined;
   knip: boolean;
   madge: boolean;
   "ast-grep": boolean;
   tsc: boolean;
   eslint: boolean;
   biome: boolean;
+  oxlint?: boolean;
+  oxfmt?: boolean;
+  ruff?: boolean;
+  mypy?: boolean;
+  vulture?: boolean;
+  "cargo-clippy"?: boolean;
+  staticcheck?: boolean;
+  "golangci-lint"?: boolean;
+  rubocop?: boolean;
 }
 
 export interface CategorySummary {

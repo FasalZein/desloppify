@@ -54,6 +54,18 @@ describe("rules command", () => {
     expect(output).not.toContain("UNWRAP_CALL");
   });
 
+  test("filters rust-owned rules via the pack catalog", () => {
+    const result = run(["--pack", "rust"]);
+    const output = result.stdout.toString();
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Pack: rust");
+    expect(output).toContain("UNWRAP_CALL");
+    expect(output).toContain("EXPECT_CALL");
+    expect(output).not.toContain("BARE_EXCEPT");
+    expect(output).not.toContain("USEEFFECT_ASYNC");
+  });
+
   test("applies repo config rule overrides", () => {
     tempRoot = mkdtempSync(join(tmpdir(), "desloppify-rules-config-"));
     writeFileSync(join(tempRoot, "desloppify.config.json"), JSON.stringify({

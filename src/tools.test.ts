@@ -19,6 +19,30 @@ describe("tools", () => {
     expect(detectSuggestedPack(root)).toBe("python");
   });
 
+  test("detectSuggestedPack returns rust for rust-only repos", () => {
+    const root = mkdtempSync(join(tmpdir(), "desloppify-rust-pack-"));
+    writeFileSync(join(root, "Cargo.toml"), "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n");
+
+    expect(detectAvailablePacks(root)).toEqual(["rust"]);
+    expect(detectSuggestedPack(root)).toBe("rust");
+  });
+
+  test("detectSuggestedPack returns go for go-only repos", () => {
+    const root = mkdtempSync(join(tmpdir(), "desloppify-go-pack-"));
+    writeFileSync(join(root, "go.mod"), "module example.com/demo\n\ngo 1.22\n");
+
+    expect(detectAvailablePacks(root)).toEqual(["go"]);
+    expect(detectSuggestedPack(root)).toBe("go");
+  });
+
+  test("detectSuggestedPack returns ruby for ruby-only repos", () => {
+    const root = mkdtempSync(join(tmpdir(), "desloppify-ruby-pack-"));
+    writeFileSync(join(root, "Gemfile"), "source 'https://rubygems.org'\n");
+
+    expect(detectAvailablePacks(root)).toEqual(["ruby"]);
+    expect(detectSuggestedPack(root)).toBe("ruby");
+  });
+
   test("detectSuggestedPack returns null for mixed repos", () => {
     const root = mkdtempSync(join(tmpdir(), "desloppify-mixed-pack-"));
     writeFileSync(join(root, "package.json"), "{}");

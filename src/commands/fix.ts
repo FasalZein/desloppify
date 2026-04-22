@@ -1,7 +1,9 @@
 import { defineCommand } from "citty";
-import { resolve } from "path";
-import type { Issue, Tier } from "../types";
+import { existsSync } from "fs";
+import { join, resolve } from "path";
+import type { Issue, Tier, ToolStatus } from "../types";
 import { detectTools } from "../tools";
+import { resolveToolCommand } from "../tool-command";
 import { walkFiles } from "../analyzers/file-walker";
 import { runAstGrep } from "../analyzers/ast-grep";
 import { runBuiltinTextAnalyzers } from "../analyzer-registry";
@@ -34,11 +36,16 @@ export default defineCommand({
       }
     }
 
-    const tools = detectTools();
+    const tools = detectTools(targetPath);
     const nets: string[] = ["git"];
     if (tools.tsc) nets.push("tsc");
     if (tools.eslint) nets.push("eslint");
     if (tools.biome) nets.push("biome");
+    if (tools.oxlint) nets.push("oxlint");
+    if (tools.oxfmt) nets.push("oxfmt");
+    if (tools.ruff) nets.push("ruff");
+    if (tools["cargo-clippy"]) nets.push("cargo-clippy");
+    if (tools.rubocop) nets.push("rubocop");
 
     console.log(`Safety nets: ${nets.join(", ")}`);
     console.log(`Max tier: ${maxTier}`);
@@ -49,10 +56,10 @@ export default defineCommand({
     allIssues.push(...runBuiltinTextAnalyzers(entries, { ids: ["grep-patterns"] }));
     const tasks: Promise<Issue[]>[] = [];
 
-    if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath));
-    if (tools.knip && maxTier >= 3) tasks.push(runKnip(targetPath));
-    if (tools.madge && maxTier >= 3) tasks.push(runMadge(targetPath));
-    if (tools.tsc && maxTier >= 3) tasks.push(runTsc(targetPath));
+    if (tools["ast-grep"]) tasks.push(runAstGrep(targetPath).then((result) => result.issues));
+    if (tools.knip && maxTier >= 3) tasks.push(runKnip(targetPath).then((result) => result.issues));
+    if (tools.madge && maxTier >= 3) tasks.push(runMadge(targetPath).then((result) => result.issues));
+    if (tools.tsc && maxTier >= 3) tasks.push(runTsc(targetPath).then((result) => result.issues));
 
     const results = await Promise.all(tasks);
     for (const issues of results) allIssues.push(...issues);
@@ -101,7 +108,7 @@ export default defineCommand({
 
       // Validate after each tier
       if (tier >= 2 && tools.tsc) {
-        const tscResult = Bun.spawnSync(["tsc", "--noEmit"], {
+        const tscResult = Bun.spawnSync([resolveToolCommand(targetPath, "tsc"), "--noEmit"], {
           cwd: targetPath,
           stdout: "pipe",
           stderr: "pipe",
@@ -117,11 +124,59 @@ export default defineCommand({
       }
     }
 
+    if (applied > 0) {
+      const formatterRuns = runPostFixFormatters(targetPath, tools);
+      if (formatterRuns.length > 0) {
+        console.log("");
+        console.log(`Formatters: ${formatterRuns.join(", ")}`);
+      }
+    }
+
     console.log("");
     console.log(`Applied: ${applied} | Skipped: ${skipped}`);
     process.exit(applied > 0 ? 0 : 1);
   },
 });
+
+function runPostFixFormatters(targetPath: string, tools: ToolStatus): string[] {
+  const ran: string[] = [];
+
+  if (tools.biome && hasAnyFile(targetPath, ["biome.json", "biome.jsonc"])) {
+    const result = Bun.spawnSync([resolveToolCommand(targetPath, "biome"), "format", "--write", "."], {
+      cwd: targetPath,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 120_000,
+    });
+    if (result.exitCode === 0) ran.push("biome format");
+  }
+
+  if (tools.oxfmt && existsSync(join(targetPath, "package.json"))) {
+    const result = Bun.spawnSync([resolveToolCommand(targetPath, "oxfmt"), "--write", "."], {
+      cwd: targetPath,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 120_000,
+    });
+    if (result.exitCode === 0) ran.push("oxfmt");
+  }
+
+  if (tools.ruff && hasAnyFile(targetPath, ["pyproject.toml", "ruff.toml", ".ruff.toml"])) {
+    const result = Bun.spawnSync(["ruff", "format", "."], {
+      cwd: targetPath,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: 120_000,
+    });
+    if (result.exitCode === 0) ran.push("ruff format");
+  }
+
+  return ran;
+}
+
+function hasAnyFile(rootPath: string, names: string[]): boolean {
+  return names.some((name) => existsSync(join(rootPath, name)));
+}
 
 function gitCheckpoint(cwd: string): string | null {
   // Check if in a git repo

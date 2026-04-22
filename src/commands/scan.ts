@@ -1,20 +1,15 @@
 import { defineCommand } from "citty";
 import { resolve } from "path";
-import type { Issue, ScanReport } from "../types";
-import { detectTools } from "../tools";
-import { readFiles, walkFiles } from "../analyzers/file-walker";
+import type { ScanReport } from "../types";
 import * as p from "@clack/prompts";
 import { buildArchitectureSummary, isArchitectureProfile, resolveArchitectureProfileName } from "../architecture";
-import { listChangedFiles, listStagedFiles } from "../changed-files";
 import { calculateScore } from "./score";
-import { buildScanReport } from "../report";
-import { getPackExternalTasks, getPackMeta, resolvePackSelection } from "../packs";
-import { runPackInternalAnalyzers } from "../packs";
+import { buildScanReport, buildScanSummary } from "../report";
+import { getPackMeta, resolvePackSelection } from "../packs";
+import { createAnalysisContext, getAnalysisScopeLabel, resolveAnalysisEntries, runAnalysisPipeline } from "../scan-service";
 import { buildWikiReport, formatWikiHandoffMarkdown } from "../wiki-output";
 import { loadSavedScanReport, saveScanArtifacts } from "../report-artifacts";
 import { compareScanReports } from "../scan-delta";
-import { applyConfigToIssues, loadDesloppifyConfig } from "../config";
-import { loadConfigPluginRules, runConfigPluginRules } from "../plugin-rules";
 import {
   scanIntro, scanOutro, createSpinner, showTools,
   showScore, showSeveritySummary, showCategories, showIssues, showNextActions,
@@ -26,6 +21,7 @@ export default defineCommand({
     path: { type: "positional", description: "Path to scan", default: "." },
     category: { type: "string", description: "Scan single category only" },
     json: { type: "boolean", description: "Machine-readable JSON output" },
+    summary: { type: "boolean", description: "Emit compact JSON/report summary instead of full findings payload" },
     markdown: { type: "boolean", description: "Markdown report output" },
     wiki: { type: "boolean", description: "Wiki-forge JSON review output" },
     handoff: { type: "boolean", description: "Compact Markdown handoff output" },
@@ -35,6 +31,7 @@ export default defineCommand({
     staged: { type: "boolean", description: "Scan staged git changes only" },
     changed: { type: "boolean", description: "Scan current branch diff only" },
     base: { type: "string", description: "Base ref for --changed" },
+    "with-madge": { type: "boolean", description: "Run madge circular dependency analysis during full scans" },
     project: { type: "string", description: "Wiki project name for wiki-native output" },
     slice: { type: "string", description: "Slice ID for wiki-native output" },
     prd: { type: "string", description: "PRD ID for wiki-native output" },
@@ -52,10 +49,7 @@ export default defineCommand({
 
     const architecture = resolveArchitectureProfileName(args.architecture);
     const pack = resolvePackSelection(args.pack);
-    const tools = detectTools();
-    const loadedConfig = loadDesloppifyConfig(targetPath);
-    const pluginRules = loadConfigPluginRules(loadedConfig.config, targetPath);
-    const allIssues: Issue[] = [];
+    const context = createAnalysisContext(targetPath);
     const isJson = args.json;
     const isWiki = args.wiki;
     const isHandoff = args.handoff;
@@ -64,69 +58,54 @@ export default defineCommand({
 
     if (!isJson && !isWiki && !isHandoff && !args.markdown) {
       scanIntro("1.0.1");
-      showTools(tools);
+      showTools(context.tools);
       p.log.info(`Pack: ${pack.name}${pack.explicit ? "" : " (default)"}`);
       if (architecture) p.log.info(`Architecture: ${architecture}`);
-      if (loadedConfig.path) p.log.info(`Config: ${loadedConfig.path}`);
+      if (context.loadedConfig.path) p.log.info(`Config: ${context.loadedConfig.path}`);
     }
 
     const spin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
 
-    // Phase 1: Collect files
-    let scopeLabel = "file tree";
-    if (args.staged) {
-      scopeLabel = "staged files";
-    } else if (args.changed) {
-      scopeLabel = "branch changes";
-    }
-    spin?.start(`Walking ${scopeLabel}...`);
-    const files = args.staged
-      ? listStagedFiles(targetPath)
-      : args.changed
-        ? listChangedFiles(targetPath, args.base)
-        : null;
-    const entries = files ? await readFiles(targetPath, files) : await walkFiles(targetPath);
-
-    // Phase 2: Run internal analyzers
-    spin?.message(`Analyzing ${entries.length} files...`);
-    allIssues.push(...runPackInternalAnalyzers(pack.name, entries, { architecture }));
-    spin?.stop(`${entries.length} files scanned — ${allIssues.length} issues from pattern analysis`);
-
-    if (pluginRules.length > 0) {
-      allIssues.push(...runConfigPluginRules(entries, pluginRules, targetPath));
-    }
-
-    // Phase 3: Run external tool analyzers
-    const tasks = getPackExternalTasks(pack.name, targetPath, tools, {
-      category: args.category,
-      partial: isPartialScan,
+    spin?.start(`Walking ${getAnalysisScopeLabel({ staged: args.staged, changed: args.changed })}...`);
+    const entries = await resolveAnalysisEntries(targetPath, {
+      staged: args.staged,
+      changed: args.changed,
+      base: args.base,
     });
 
-    if (tasks.length > 0) {
-      const extSpin = (!isJson && !isWiki && !isHandoff && !args.markdown) ? createSpinner() : null;
-      extSpin?.start(`Running ${tasks.map((t) => t.name).join(", ")}...`);
-      const results = await Promise.all(tasks.map((t) => t.promise));
-      let extCount = 0;
-      for (const issues of results) {
-        extCount += issues.length;
-        allIssues.push(...issues);
-      }
-      extSpin?.stop(`External tools done — ${extCount} additional issues`);
+    spin?.message(`Analyzing ${entries.length} files...`);
+    const analysis = await runAnalysisPipeline(targetPath, entries, context, {
+      pack,
+      architecture,
+      category: args.category,
+      partial: isPartialScan,
+      withMadge: args["with-madge"] || args.category === "circular-deps",
+    });
+    spin?.stop(`${entries.length} files scanned — ${analysis.internalIssues.length} issues from pattern analysis`);
+
+    if (analysis.externalTaskNames.length > 0 && !isJson && !isWiki && !isHandoff && !args.markdown) {
+      p.log.info(`External tools done (${analysis.externalTaskNames.join(", ")}) — ${analysis.externalIssues.length} additional issues`);
     } else if (isPartialScan && !isJson && !isWiki && !isHandoff && !args.markdown) {
       p.log.info("Partial scan mode skips whole-project analyzers (knip, madge, ast-grep, tsc)");
+    } else if (pack.name === "js-ts" && !args.category && !args["with-madge"] && !isJson && !isWiki && !isHandoff && !args.markdown) {
+      p.log.info("Skipping madge by default on full scans — rerun with --with-madge or --category circular-deps");
     }
 
-    const configuredIssues = applyConfigToIssues(allIssues, loadedConfig.config, targetPath);
+    const filtered = analysis.issues;
 
-    // Filter by category if specified
-    const filtered = args.category
-      ? configuredIssues.filter((i) => i.category === args.category)
-      : configuredIssues;
+    if (analysis.externalWarnings.length > 0) {
+      const warningText = analysis.externalWarnings.join("\n");
+      if (isJson || isWiki || isHandoff || args.markdown) {
+        console.error(warningText);
+      } else {
+        p.note(warningText, "External analyzer warnings");
+      }
+    }
 
     const elapsed = performance.now() - t0;
 
     const previousReport = loadSavedScanReport(targetPath);
-    const report = buildScanReport(targetPath, tools, filtered, pack, architecture, {
+    const report = buildScanReport(targetPath, context.tools, filtered, pack, architecture, {
       fileCount: entries.length,
       lineCount: entries.reduce((sum, entry) => sum + entry.lines.length, 0),
       nonEmptyLineCount: entries.reduce((sum, entry) => sum + entry.lines.filter((line) => line.trim().length > 0).length, 0),
@@ -146,7 +125,7 @@ export default defineCommand({
 
     // ── JSON output ────────────────────────────────────────────
     if (isJson) {
-      console.log(JSON.stringify(report, null, 2));
+      console.log(JSON.stringify(args.summary ? buildScanSummary(report) : report, null, 2));
       process.exit(report.findings.length > 0 ? 1 : 0);
     }
 
@@ -182,9 +161,10 @@ export default defineCommand({
     // Category breakdown
     const categories: Record<string, { count: number; fixable: number }> = {};
     for (const issue of filtered) {
-      if (!categories[issue.category]) categories[issue.category] = { count: 0, fixable: 0 };
-      categories[issue.category].count++;
-      if (issue.tier > 0) categories[issue.category].fixable++;
+      const bucket = categories[issue.category] ?? { count: 0, fixable: 0 };
+      bucket.count++;
+      if (issue.tier > 0) bucket.fixable++;
+      categories[issue.category] = bucket;
     }
     showCategories(categories);
 
