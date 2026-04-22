@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -66,8 +66,8 @@ function isDefaultHooksPath(repoRoot: string, hooksPath: string | null | undefin
   return normalizeHooksPath(repoRoot, hooksPath) === join(realpathSync(repoRoot), ".git", "hooks");
 }
 
-function readCurrentHooksPath(repoRoot: string): string | null {
-  const result = spawnSync("git", ["config", "--local", "--get", "core.hooksPath"], {
+function readScopedHooksPath(repoRoot: string, scope: "worktree" | "local"): string | null {
+  const result = spawnSync("git", ["config", `--${scope}`, "--get", "core.hooksPath"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
@@ -76,8 +76,16 @@ function readCurrentHooksPath(repoRoot: string): string | null {
   return result.stdout.trim() || null;
 }
 
+function readCurrentHooksPath(repoRoot: string): string | null {
+  return readScopedHooksPath(repoRoot, "worktree") ?? readScopedHooksPath(repoRoot, "local");
+}
+
 function assertNoActiveLegacyHooks(activeHooksDir: string) {
-  for (const hookName of ["pre-commit", "pre-push"] as const) {
+  if (!existsSync(activeHooksDir)) return;
+
+  for (const hookName of readdirSync(activeHooksDir)) {
+    if (hookName.endsWith(".sample")) continue;
+
     const hookPath = join(activeHooksDir, hookName);
     if (!existsSync(hookPath)) continue;
 
@@ -100,7 +108,7 @@ function assertHooksPathCanBeConfigured(repoRoot: string) {
     }
   }
 
-  const activeHooksDir = currentHooksPath ? defaultHooksDir : defaultHooksDir;
+  const activeHooksDir = defaultHooksDir;
   if (activeHooksDir !== managedHooksDir) {
     assertNoActiveLegacyHooks(activeHooksDir);
   }
@@ -126,7 +134,7 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
   const { preCommit, prePush } = readHookTemplates();
   const display = [
     'repo_root=$(git rev-parse --show-toplevel)',
-    'current_hooks_path=$(git -C "$repo_root" config --local --get core.hooksPath || true)',
+    'current_hooks_path=$(git -C "$repo_root" config --worktree --get core.hooksPath 2>/dev/null || git -C "$repo_root" config --local --get core.hooksPath 2>/dev/null || true)',
     'managed_hooks_path=$(cd "$repo_root" && pwd)/.githooks',
     'default_hooks_path=$(cd "$repo_root" && pwd)/.git/hooks',
     'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ] && [ "$current_hooks_path" != ".git/hooks" ] && [ "$current_hooks_path" != "./.git/hooks" ] && [ "$current_hooks_path" != "$managed_hooks_path" ] && [ "$current_hooks_path" != "$default_hooks_path" ]; then',
@@ -137,9 +145,12 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
     'if [ "$current_hooks_path" = ".githooks" ] || [ "$current_hooks_path" = "./.githooks" ] || [ "$current_hooks_path" = "$managed_hooks_path" ]; then',
     '  active_hooks_dir="$managed_hooks_path"',
     'fi',
-    'for hook_name in pre-commit pre-push; do',
-    '  hook_path="$active_hooks_dir/$hook_name"',
-    `  if [ -f "$hook_path" ] && ! grep -q '${MANAGED_HOOK_MARKER}' "$hook_path"; then`,
+    'for hook_path in "$active_hooks_dir"/*; do',
+    '  [ -f "$hook_path" ] || continue',
+    '  case "$hook_path" in',
+    '    *.sample) continue ;;',
+    '  esac',
+    `  if ! grep -q '${MANAGED_HOOK_MARKER}' "$hook_path"; then`,
     '    printf "%s\\n" "Refusing to disable existing hook: $hook_path" >&2',
     '    exit 1',
     '  fi',

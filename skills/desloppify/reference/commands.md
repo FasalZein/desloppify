@@ -9,7 +9,7 @@ desloppify setup
 desloppify check-tools [path]
 ```
 
-`desloppify install-hooks` scaffolds `.githooks/` into the current git repo, enables `core.hooksPath`, and installs hooks that resolve the CLI from the repo, `bunx`, or PATH. The hooks auto-pick the repo's suggested pack when that choice is clear, otherwise fall back to `js-ts`. The installer refuses to overwrite unmanaged hook files or replace another hook manager's `core.hooksPath`. Hook scans default to current changes. Set `DESLOPPIFY_HOOK_SCOPE=repo` to make the installed hooks scan the whole repo instead.
+`desloppify install-hooks` scaffolds `.githooks/` into the current git repo, enables `core.hooksPath`, and installs hooks that resolve the CLI from the repo, `bunx`, or PATH. The hooks auto-pick the repo's suggested pack when that choice is clear, otherwise fall back to `js-ts`. The installer refuses to overwrite unmanaged hook files or replace another active hook chain from `.git/hooks`, `.husky`, or worktree-scoped hook config. Hook scans default to current changes. Set `DESLOPPIFY_HOOK_SCOPE=repo` to make the installed hooks scan the whole repo instead.
 
 ## Scan + reports
 
