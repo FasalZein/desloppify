@@ -56,13 +56,15 @@ function normalizeHooksPath(repoRoot: string, hooksPath: string): string {
   return hooksPath;
 }
 
-function isManagedHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
+function isAllowedHooksPath(repoRoot: string, hooksPath: string | null | undefined): boolean {
   if (!hooksPath) return false;
-  return normalizeHooksPath(repoRoot, hooksPath) === join(realpathSync(repoRoot), ".githooks");
+
+  const normalized = normalizeHooksPath(repoRoot, hooksPath);
+  return normalized === join(realpathSync(repoRoot), ".githooks") || normalized === join(realpathSync(repoRoot), ".git", "hooks");
 }
 
 function readCurrentHooksPath(repoRoot: string): string | null {
-  const result = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+  const result = spawnSync("git", ["config", "--local", "--get", "core.hooksPath"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
@@ -73,7 +75,7 @@ function readCurrentHooksPath(repoRoot: string): string | null {
 
 function assertHooksPathCanBeConfigured(repoRoot: string) {
   const currentHooksPath = readCurrentHooksPath(repoRoot);
-  if (!currentHooksPath || isManagedHooksPath(repoRoot, currentHooksPath)) return;
+  if (!currentHooksPath || isAllowedHooksPath(repoRoot, currentHooksPath)) return;
 
   throw new Error(`Refusing to replace existing core.hooksPath=${currentHooksPath}`);
 }
@@ -98,9 +100,10 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
   const { preCommit, prePush } = readHookTemplates();
   const display = [
     'repo_root=$(git rev-parse --show-toplevel)',
-    'current_hooks_path=$(git -C "$repo_root" config --get core.hooksPath || true)',
+    'current_hooks_path=$(git -C "$repo_root" config --local --get core.hooksPath || true)',
     'managed_hooks_path=$(cd "$repo_root" && pwd)/.githooks',
-    'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ] && [ "$current_hooks_path" != "$managed_hooks_path" ]; then',
+    'default_hooks_path=$(cd "$repo_root" && pwd)/.git/hooks',
+    'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ] && [ "$current_hooks_path" != ".git/hooks" ] && [ "$current_hooks_path" != "./.git/hooks" ] && [ "$current_hooks_path" != "$managed_hooks_path" ] && [ "$current_hooks_path" != "$default_hooks_path" ]; then',
     '  printf "%s\\n" "Refusing to replace existing core.hooksPath=$current_hooks_path" >&2',
     '  exit 1',
     'fi',

@@ -20,7 +20,7 @@ describe("setup helpers", () => {
     expect(install.command).toBe("sh");
     expect(install.args[0]).toBe("-c");
     expect(install.display).toContain("git rev-parse --show-toplevel");
-    expect(install.display).toContain("current_hooks_path=$(git -C \"$repo_root\" config --get core.hooksPath || true)");
+    expect(install.display).toContain("current_hooks_path=$(git -C \"$repo_root\" config --local --get core.hooksPath || true)");
     expect(install.display).toContain('write_hook "$repo_root/.githooks/pre-commit"');
     expect(install.display).toContain('write_hook "$repo_root/.githooks/pre-push"');
     expect(install.display).toContain("managed by desloppify install-hooks");
@@ -82,6 +82,31 @@ describe("setup helpers", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-absolute-"));
     expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
     expect(spawnSync("git", ["config", "core.hooksPath", join(repoRoot, ".githooks")], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const result = installHooks(repoRoot);
+    expect(result.hooksDir).toBe(join(result.repoRoot, ".githooks"));
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
+  });
+
+  test("allows an explicit default .git/hooks path", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-default-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("git", ["config", "core.hooksPath", ".git/hooks"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const result = installHooks(repoRoot);
+    expect(result.hooksDir).toBe(join(result.repoRoot, ".githooks"));
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(true);
+  });
+
+  test("ignores inherited global hooksPath when installing repo-local hooks", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-global-"));
+    const fakeHome = mkdtempSync(join(tmpdir(), "desloppify-hooks-home-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("git", ["config", "--global", "core.hooksPath", "~/.global-hooks"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, HOME: fakeHome },
+    }).status).toBe(0);
 
     const result = installHooks(repoRoot);
     expect(result.hooksDir).toBe(join(result.repoRoot, ".githooks"));
