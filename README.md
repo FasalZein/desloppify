@@ -206,7 +206,7 @@ desloppify install-hooks
 desloppify install-hooks --print
 ```
 
-This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hooksPath .githooks` for the current repo. The installed hooks resolve `desloppify` from `./node_modules/.bin`, your PATH, or `bunx`. Existing unmanaged hook files are left alone instead of being overwritten.
+This scaffolds repo-local hooks under `.githooks/` and sets `git config core.hooksPath .githooks` for the current repo. The installed hooks resolve `desloppify` from `./node_modules/.bin`, `bunx`, or your PATH. Existing unmanaged hook files are left alone instead of being overwritten, and the installer refuses to replace another hook manager's `core.hooksPath` such as `.husky`.
 
 - `pre-commit` → scans `--staged`
 - `pre-push` → scans `--changed`

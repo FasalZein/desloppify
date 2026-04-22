@@ -57,4 +57,34 @@ describe("install-hooks command", () => {
     expect(repoHook.status).toBe(0);
     expect(repoHook.stdout).toContain("scanning whole repo");
   });
+
+  test("prefers bunx fallback over a stale PATH binary", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-install-hooks-bunx-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    writeFileSync(join(repoRoot, "package.json"), "{}\n");
+    expect(spawnSync("git", ["add", "package.json"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    const fakeBinDir = join(repoRoot, "fakebin");
+    mkdirSync(fakeBinDir, { recursive: true });
+    const fakeBunx = join(fakeBinDir, "bunx");
+    writeFileSync(fakeBunx, `#!/bin/sh\nshift 2\nexec bun \"${join(process.cwd(), "src", "cli.ts")}\" \"$@\"\n`);
+    chmodSync(fakeBunx, 0o755);
+    const fakeGlobal = join(fakeBinDir, "desloppify");
+    writeFileSync(fakeGlobal, "#!/bin/sh\necho fake-global >&2\nexit 42\n");
+    chmodSync(fakeGlobal, 0o755);
+
+    expect(spawnSync("bun", [join(process.cwd(), "src", "cli.ts"), "install-hooks"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    }).status).toBe(0);
+
+    const hookRun = spawnSync("sh", [join(repoRoot, ".githooks", "pre-commit")], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH ?? ""}` },
+    });
+
+    expect(hookRun.status).toBe(0);
+    expect(hookRun.stderr).not.toContain("fake-global");
+  });
 });

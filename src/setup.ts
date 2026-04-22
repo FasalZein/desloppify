@@ -39,6 +39,27 @@ export function getSkillInstallCommand(): { command: string; args: string[]; dis
   };
 }
 
+function isManagedHooksPath(hooksPath: string | null | undefined): boolean {
+  return hooksPath === ".githooks" || hooksPath === "./.githooks";
+}
+
+function readCurrentHooksPath(repoRoot: string): string | null {
+  const result = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+
+  if ((result.status ?? 1) !== 0) return null;
+  return result.stdout.trim() || null;
+}
+
+function assertHooksPathCanBeConfigured(repoRoot: string) {
+  const currentHooksPath = readCurrentHooksPath(repoRoot);
+  if (!currentHooksPath || isManagedHooksPath(currentHooksPath)) return;
+
+  throw new Error(`Refusing to replace existing core.hooksPath=${currentHooksPath}`);
+}
+
 function assertHookCanBeWritten(hookPath: string, nextContents: string) {
   if (!existsSync(hookPath)) return;
 
@@ -59,6 +80,11 @@ export function getHooksInstallCommand(): { command: string; args: string[]; dis
   const { preCommit, prePush } = readHookTemplates();
   const display = [
     'repo_root=$(git rev-parse --show-toplevel)',
+    'current_hooks_path=$(git -C "$repo_root" config --get core.hooksPath || true)',
+    'if [ -n "$current_hooks_path" ] && [ "$current_hooks_path" != ".githooks" ] && [ "$current_hooks_path" != "./.githooks" ]; then',
+    '  printf "%s\\n" "Refusing to replace existing core.hooksPath=$current_hooks_path" >&2',
+    '  exit 1',
+    'fi',
     'mkdir -p "$repo_root/.githooks"',
     'write_hook() {',
     '  hook_path="$1"',
@@ -90,6 +116,7 @@ export function installHooks(cwd = process.cwd()): { repoRoot: string; hooksDir:
   const hooksDir = join(repoRoot, ".githooks");
   const { preCommit, prePush } = readHookTemplates();
 
+  assertHooksPathCanBeConfigured(repoRoot);
   mkdirSync(hooksDir, { recursive: true });
   writeManagedHook(join(hooksDir, "pre-commit"), preCommit);
   writeManagedHook(join(hooksDir, "pre-push"), prePush);

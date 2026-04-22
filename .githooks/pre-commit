@@ -11,13 +11,13 @@ run_desloppify() {
     return
   fi
 
-  if command -v desloppify >/dev/null 2>&1; then
-    desloppify "$@"
+  if command -v bunx >/dev/null 2>&1; then
+    bunx --bun desloppify "$@"
     return
   fi
 
-  if command -v bunx >/dev/null 2>&1; then
-    bunx --bun desloppify "$@"
+  if command -v desloppify >/dev/null 2>&1; then
+    desloppify "$@"
     return
   fi
 

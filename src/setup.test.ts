@@ -20,6 +20,7 @@ describe("setup helpers", () => {
     expect(install.command).toBe("sh");
     expect(install.args[0]).toBe("-c");
     expect(install.display).toContain("git rev-parse --show-toplevel");
+    expect(install.display).toContain("current_hooks_path=$(git -C \"$repo_root\" config --get core.hooksPath || true)");
     expect(install.display).toContain('write_hook "$repo_root/.githooks/pre-commit"');
     expect(install.display).toContain('write_hook "$repo_root/.githooks/pre-push"');
     expect(install.display).toContain("managed by desloppify install-hooks");
@@ -75,6 +76,15 @@ describe("setup helpers", () => {
 
     expect(() => installHooks(repoRoot)).toThrow("Refusing to overwrite existing unmanaged hook");
     expect(readFileSync(hookPath, "utf8")).toContain("custom hook");
+  });
+
+  test("refuses to replace another hooksPath manager", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "desloppify-hooks-path-"));
+    expect(spawnSync("git", ["init"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("git", ["config", "core.hooksPath", ".husky"], { cwd: repoRoot, encoding: "utf8" }).status).toBe(0);
+
+    expect(() => installHooks(repoRoot)).toThrow("Refusing to replace existing core.hooksPath=.husky");
+    expect(existsSync(join(repoRoot, ".githooks", "pre-commit"))).toBe(false);
   });
 
   test("packages hook templates for bunx installs", () => {
