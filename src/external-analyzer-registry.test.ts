@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { listBuiltinExternalAnalyzerIds } from "./external-analyzer-registry";
+import { getBuiltinPackDefinition } from "./pack-registry";
 import type { ToolStatus } from "./types";
 
 const allTools: ToolStatus = {
@@ -31,5 +32,17 @@ describe("external analyzer registry", () => {
     expect(listBuiltinExternalAnalyzerIds("go", allTools)).toEqual(["staticcheck", "golangci-lint"]);
     expect(listBuiltinExternalAnalyzerIds("ruby", allTools)).toEqual(["rubocop"]);
     expect(listBuiltinExternalAnalyzerIds("js-ts", allTools, { partial: true })).toEqual([]);
+  });
+
+  test("canonical pack definitions delegate external analyzer selection", () => {
+    const jsDefinition = getBuiltinPackDefinition("js-ts");
+    const pythonDefinition = getBuiltinPackDefinition("python");
+
+    expect(jsDefinition.listExternalAnalyzerIds(allTools, { withMadge: true })).toEqual(
+      listBuiltinExternalAnalyzerIds("js-ts", allTools, { withMadge: true }),
+    );
+    expect(pythonDefinition.listExternalAnalyzerIds(allTools)).toEqual(
+      listBuiltinExternalAnalyzerIds("python", allTools),
+    );
   });
 });

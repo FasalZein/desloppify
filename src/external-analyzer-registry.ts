@@ -8,9 +8,9 @@ export interface BuiltinExternalTask {
   promise: Promise<ExternalAnalyzerResult>;
 }
 
-type BuiltinExternalAnalyzerId = "knip" | "madge" | "ast-grep" | "tsc" | "eslint" | "biome" | "oxlint" | "ruff" | "cargo-clippy" | "staticcheck" | "golangci-lint" | "rubocop";
+export type BuiltinExternalAnalyzerId = "knip" | "madge" | "ast-grep" | "tsc" | "eslint" | "biome" | "oxlint" | "ruff" | "cargo-clippy" | "staticcheck" | "golangci-lint" | "rubocop";
 
-interface BuiltinExternalRunOptions {
+export interface BuiltinExternalRunOptions {
   category?: string;
   partial?: boolean;
   withMadge?: boolean;

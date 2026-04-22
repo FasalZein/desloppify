@@ -11,7 +11,10 @@ describe("packs", () => {
     const pack = resolvePackSelection();
 
     expect(pack).toEqual({ name: "js-ts", explicit: false });
-    expect(getPackMeta(pack.name).description).toContain("JavaScript");
+    const meta = getPackMeta(pack.name);
+    expect(meta.name).toBe("js-ts");
+    expect(String(meta.description)).toContain("JavaScript");
+    expect(meta.projectSignals).toEqual(["javascript", "typescript", "react"]);
   });
 
   test("accepts python, rust, go, and ruby as first-class packs", () => {
@@ -21,13 +24,25 @@ describe("packs", () => {
     const rubyPack = resolvePackSelection("ruby");
 
     expect(pythonPack).toEqual({ name: "python", explicit: true });
-    expect(getPackMeta(pythonPack.name).description).toContain("Python");
+    const pythonMeta = getPackMeta(pythonPack.name);
+    expect(pythonMeta.name).toBe("python");
+    expect(String(pythonMeta.description)).toContain("Python");
+    expect(pythonMeta.projectSignals).toEqual(["python"]);
     expect(rustPack).toEqual({ name: "rust", explicit: true });
-    expect(getPackMeta(rustPack.name).description).toContain("Rust");
+    const rustMeta = getPackMeta(rustPack.name);
+    expect(rustMeta.name).toBe("rust");
+    expect(String(rustMeta.description)).toContain("Rust");
+    expect(rustMeta.projectSignals).toEqual(["rust"]);
     expect(goPack).toEqual({ name: "go", explicit: true });
-    expect(getPackMeta(goPack.name).description).toContain("Go");
+    const goMeta = getPackMeta(goPack.name);
+    expect(goMeta.name).toBe("go");
+    expect(String(goMeta.description)).toContain("Go");
+    expect(goMeta.projectSignals).toEqual(["go"]);
     expect(rubyPack).toEqual({ name: "ruby", explicit: true });
-    expect(getPackMeta(rubyPack.name).description).toContain("Ruby");
+    const rubyMeta = getPackMeta(rubyPack.name);
+    expect(rubyMeta.name).toBe("ruby");
+    expect(String(rubyMeta.description)).toContain("Ruby");
+    expect(rubyMeta.projectSignals).toEqual(["ruby"]);
   });
 
   test("rejects unknown packs", () => {

@@ -1,4 +1,5 @@
-import { PACK_CATALOG, type PackName } from "./domain/pack-catalog";
+import type { PackName } from "./domain/pack-catalog";
+import { listBuiltinPackDefinitions } from "./pack-registry";
 import type { ToolStatus } from "./types";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -84,9 +85,9 @@ interface ProjectInfo {
 export function detectAvailablePacks(targetPath: string): PackName[] {
   const project = detectProject(targetPath);
 
-  return (Object.entries(PACK_CATALOG) as Array<[PackName, (typeof PACK_CATALOG)[PackName]]>)
-    .filter(([, definition]) => definition.projectSignals.some((signal) => project[signal]))
-    .map(([pack]) => pack);
+  return listBuiltinPackDefinitions()
+    .filter((definition) => definition.meta.projectSignals.some((signal) => project[signal]))
+    .map((definition) => definition.meta.name);
 }
 
 export function detectSuggestedPack(targetPath: string): PackName | null {

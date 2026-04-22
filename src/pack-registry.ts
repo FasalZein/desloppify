@@ -1,34 +1,15 @@
-import type { FileEntry } from "./analyzers/file-walker";
 import { runBuiltinEntryAnalyzers, runBuiltinTextAnalyzers } from "./analyzer-registry";
-import type { ArchitectureProfileName } from "./architecture";
-import { PACK_CATALOG } from "./domain/pack-catalog";
-import { getBuiltinExternalTasks, type BuiltinExternalTask } from "./external-analyzer-registry";
+import { PACK_CATALOG, PACK_NAMES } from "./domain/pack-catalog";
+import type { PackDefinition, PackMeta, PackRunOptions } from "./domain/pack-definition";
+import { getBuiltinExternalTasks, listBuiltinExternalAnalyzerIds, type BuiltinExternalTask } from "./external-analyzer-registry";
 import { GO_FILE, JS_TS_SOURCE_FILE, JS_TS_TEXT_FILE, PYTHON_FILE, RUBY_FILE, RUST_FILE, filterEntries, isGoExtendedRule, isGoPatternRule, isJsTsRule, isPythonExtendedRule, isPythonPatternRule, isRubyExtendedRule, isRubyPatternRule } from "./pack-filters";
-import type { Issue, PackName, ToolStatus } from "./types";
+import type { PackName } from "./types";
 
-export interface PackMeta {
-  name: PackName;
-  description: string;
-}
-
-export interface PackRunOptions {
-  architecture?: ArchitectureProfileName;
-  category?: string;
-  partial?: boolean;
-  withMadge?: boolean;
-}
-
-interface BuiltinPackDefinition {
-  meta: PackMeta;
-  runInternal: (entries: FileEntry[], options?: PackRunOptions) => Issue[];
-  getExternalTasks: (targetPath: string, tools: ToolStatus, options?: PackRunOptions) => BuiltinExternalTask[];
-}
-
-const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
+const BUILTIN_PACKS: Record<PackName, PackDefinition> = {
   "js-ts": {
     meta: {
       name: "js-ts",
-      description: PACK_CATALOG["js-ts"].description,
+      ...PACK_CATALOG["js-ts"],
     },
     runInternal: (entries, options = {}) => {
       const textEntries = filterEntries(entries, JS_TS_TEXT_FILE);
@@ -41,12 +22,13 @@ const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
         }),
       ];
     },
+    listExternalAnalyzerIds: (tools, options = {}) => listBuiltinExternalAnalyzerIds("js-ts", tools, options),
     getExternalTasks: (targetPath, tools, options = {}) => getBuiltinExternalTasks("js-ts", targetPath, tools, options),
   },
   python: {
     meta: {
       name: "python",
-      description: PACK_CATALOG.python.description,
+      ...PACK_CATALOG.python,
     },
     runInternal: (entries) => {
       const pythonEntries = filterEntries(entries, PYTHON_FILE);
@@ -57,12 +39,13 @@ const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
         }),
       ];
     },
+    listExternalAnalyzerIds: (tools, options = {}) => listBuiltinExternalAnalyzerIds("python", tools, options),
     getExternalTasks: (targetPath, tools, options = {}) => getBuiltinExternalTasks("python", targetPath, tools, options),
   },
   rust: {
     meta: {
       name: "rust",
-      description: PACK_CATALOG.rust.description,
+      ...PACK_CATALOG.rust,
     },
     runInternal: (entries) => {
       const rustEntries = filterEntries(entries, RUST_FILE);
@@ -73,12 +56,13 @@ const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
         }),
       ];
     },
+    listExternalAnalyzerIds: (tools, options = {}) => listBuiltinExternalAnalyzerIds("rust", tools, options),
     getExternalTasks: (targetPath, tools, options = {}) => getBuiltinExternalTasks("rust", targetPath, tools, options),
   },
   go: {
     meta: {
       name: "go",
-      description: PACK_CATALOG.go.description,
+      ...PACK_CATALOG.go,
     },
     runInternal: (entries) => {
       const goEntries = filterEntries(entries, GO_FILE);
@@ -89,12 +73,13 @@ const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
         }),
       ];
     },
+    listExternalAnalyzerIds: (tools, options = {}) => listBuiltinExternalAnalyzerIds("go", tools, options),
     getExternalTasks: (targetPath, tools, options = {}) => getBuiltinExternalTasks("go", targetPath, tools, options),
   },
   ruby: {
     meta: {
       name: "ruby",
-      description: PACK_CATALOG.ruby.description,
+      ...PACK_CATALOG.ruby,
     },
     runInternal: (entries) => {
       const rubyEntries = filterEntries(entries, RUBY_FILE);
@@ -105,12 +90,18 @@ const BUILTIN_PACKS: Record<PackName, BuiltinPackDefinition> = {
         }),
       ];
     },
+    listExternalAnalyzerIds: (tools, options = {}) => listBuiltinExternalAnalyzerIds("ruby", tools, options),
     getExternalTasks: (targetPath, tools, options = {}) => getBuiltinExternalTasks("ruby", targetPath, tools, options),
   },
 };
 
 export type PackExternalTask = BuiltinExternalTask;
+export type { PackDefinition, PackMeta, PackRunOptions } from "./domain/pack-definition";
 
-export function getBuiltinPackDefinition(pack: PackName): BuiltinPackDefinition {
+export function listBuiltinPackDefinitions(): PackDefinition[] {
+  return PACK_NAMES.map((pack) => BUILTIN_PACKS[pack]);
+}
+
+export function getBuiltinPackDefinition(pack: PackName): PackDefinition {
   return BUILTIN_PACKS[pack];
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { listBuiltinPackDefinitions } from "./pack-registry";
 import { detectAvailablePacks, detectProject, detectSuggestedPack, printToolStatus } from "./tools";
 
 describe("tools", () => {
@@ -50,6 +51,19 @@ describe("tools", () => {
 
     expect(detectAvailablePacks(root)).toEqual(["js-ts", "python"]);
     expect(detectSuggestedPack(root)).toBeNull();
+  });
+
+  test("detectAvailablePacks follows canonical pack definition signals", () => {
+    const root = mkdtempSync(join(tmpdir(), "desloppify-pack-signals-"));
+    writeFileSync(join(root, "package.json"), "{}");
+    writeFileSync(join(root, "Gemfile"), "source 'https://rubygems.org'\n");
+
+    const project = detectProject(root);
+    const expected = listBuiltinPackDefinitions()
+      .filter((definition) => definition.meta.projectSignals.some((signal) => project[signal]))
+      .map((definition) => definition.meta.name);
+
+    expect(detectAvailablePacks(root)).toEqual(expected);
   });
 
   test("printToolStatus returns readable output", () => {
